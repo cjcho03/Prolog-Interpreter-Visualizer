@@ -1,0 +1,65 @@
+# Go
+
+# Build output
+/bin/
+/build/
+
+# Test binaries and coverage
+*.test
+*.out
+coverage.out
+coverage.html
+
+# Go workspace
+go.work
+go.work.sum
+
+# Node / Vite
+
+node_modules/
+dist/
+dist-ssr/
+.vite/
+
+# Incremental TypeScript builds
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Package manager caches
+
+.npm/
+.pnpm-store/
+.yarn/
+
+# IDEs
+
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+.idea/
+
+# OS files
+
+.DS_Store
+Thumbs.db
+
+# Temporary / backup files
+
+*.swp
+*.swo
+*~
