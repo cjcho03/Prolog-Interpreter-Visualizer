@@ -1,6 +1,6 @@
 package prolog
 
-import "fmt"
+import "strings"
 
 type Term interface {
 	String() string
@@ -24,7 +24,13 @@ type Predicate struct {
 }
 
 func (p Predicate) String() string {
-	return fmt.Sprintf("%s%v", p.Name, p.Args)
+	args := make([]string, len(p.Args))
+
+	for i, arg := range p.Args {
+		args[i] = arg.String()
+	}
+
+	return p.Name + "(" + strings.Join(args, ", ") + ")"
 }
 
 type Substitution map[Var]Term

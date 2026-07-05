@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>Prolog Interpreter Visualizer</title>
+  </head>
+
+  <body>
+    <main class="app">
+      <header class="header">
+        <div>
+          <h1>Prolog Interpreter Visualizer</h1>
+          <p>Step through unification, failure, and backtracking.</p>
+        </div>
+
+        <div class="controls">
+          <button id="run-demo">Run demo</button>
+          <button id="previous-step">Previous</button>
+          <button id="next-step">Next</button>
+          <button id="play-trace">Play</button>
+        </div>
+      </header>
+
+      <p id="error-message" class="error" hidden></p>
+
+      <section class="layout">
+        <section class="panel">
+          <h2>Current operation</h2>
+
+          <div class="current-event">
+            <p id="step-counter">No trace loaded.</p>
+            <p id="event-kind" class="event-kind">Waiting</p>
+            <p id="event-description" class="event-description">
+              Run the demo to receive events from the Go interpreter.
+            </p>
+          </div>
+
+          <p class="label">Goal</p>
+          <p id="current-goal" class="value">—</p>
+
+          <p class="label">Fact</p>
+          <p id="current-fact" class="value">—</p>
+
+          <p class="label">Bindings</p>
+          <div id="bindings" class="bindings"></div>
+
+          <p class="label">Solutions</p>
+          <div id="answers" class="answers"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Execution trace</h2>
+          <ol id="trace-list" class="trace-list"></ol>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
