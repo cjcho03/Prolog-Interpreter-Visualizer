@@ -1,0 +1,309 @@
+import "./styles.css";
+import { fetchDemoTrace } from "./api";
+import type { SolveResponse, TraceEvent, TraceEventType } from "./types";
+
+function getElement<T extends HTMLElement>(id: string): T {
+  const element = document.getElementById(id);
+
+  if (!element) {
+    throw new Error(`Missing element: #${id}`);
+  }
+
+  return element as T;
+}
+
+const runButton = getElement<HTMLButtonElement>("run-demo");
+const previousButton = getElement<HTMLButtonElement>("previous-step");
+const nextButton = getElement<HTMLButtonElement>("next-step");
+const playButton = getElement<HTMLButtonElement>("play-trace");
+
+const stepCounter = getElement<HTMLParagraphElement>("step-counter");
+const eventKind = getElement<HTMLParagraphElement>("event-kind");
+const eventDescription = getElement<HTMLParagraphElement>("event-description");
+const currentGoal = getElement<HTMLParagraphElement>("current-goal");
+const currentFact = getElement<HTMLParagraphElement>("current-fact");
+const bindingsList = getElement<HTMLDivElement>("bindings");
+const traceList = getElement<HTMLOListElement>("trace-list");
+const answersList = getElement<HTMLDivElement>("answers");
+const errorBox = getElement<HTMLParagraphElement>("error-message");
+
+const labels: Record<TraceEventType, string> = {
+  goal: "Goal",
+  try_fact: "Try Fact",
+  unified: "Unified",
+  failed: "Failed",
+  backtrack: "Backtrack",
+  solution: "Solution",
+};
+
+const state: {
+  events: TraceEvent[];
+  answers: SolveResponse["answers"];
+  currentIndex: number;
+  playTimer?: number;
+  loading: boolean;
+} = {
+  events: [],
+  answers: [],
+  currentIndex: -1,
+  loading: false,
+};
+
+runButton.addEventListener("click", runDemo);
+previousButton.addEventListener("click", previousStep);
+nextButton.addEventListener("click", nextStep);
+playButton.addEventListener("click", togglePlayback);
+
+render();
+
+async function runDemo(): Promise<void> {
+  stopPlayback();
+
+  state.loading = true;
+  state.events = [];
+  state.answers = [];
+  state.currentIndex = -1;
+
+  clearError();
+  render();
+
+  try {
+    const data = await fetchDemoTrace();
+
+    state.events = data.events;
+    state.answers = data.answers;
+    state.currentIndex = data.events.length > 0 ? 0 : -1;
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Could not load the trace.";
+
+    showError(message);
+  } finally {
+    state.loading = false;
+    render();
+  }
+}
+
+function previousStep(): void {
+  stopPlayback();
+
+  if (state.currentIndex > 0) {
+    state.currentIndex -= 1;
+  }
+
+  render();
+}
+
+function nextStep(): void {
+  stopPlayback();
+
+  if (state.currentIndex < state.events.length - 1) {
+    state.currentIndex += 1;
+  }
+
+  render();
+}
+
+function togglePlayback(): void {
+  if (state.playTimer !== undefined) {
+    stopPlayback();
+    return;
+  }
+
+  if (state.events.length === 0) {
+    return;
+  }
+
+  if (state.currentIndex >= state.events.length - 1) {
+    state.currentIndex = 0;
+  }
+
+  state.playTimer = window.setInterval(() => {
+    if (state.currentIndex >= state.events.length - 1) {
+      stopPlayback();
+      return;
+    }
+
+    state.currentIndex += 1;
+    render();
+  }, 900);
+
+  render();
+}
+
+function stopPlayback(): void {
+  if (state.playTimer !== undefined) {
+    window.clearInterval(state.playTimer);
+    state.playTimer = undefined;
+  }
+}
+
+function render(): void {
+  const hasTrace = state.events.length > 0 && state.currentIndex >= 0;
+  const atFirstStep = state.currentIndex <= 0;
+  const atLastStep = state.currentIndex >= state.events.length - 1;
+
+  runButton.disabled = state.loading;
+  runButton.textContent = state.loading ? "Loading..." : "Run demo";
+
+  previousButton.disabled = !hasTrace || atFirstStep;
+  nextButton.disabled = !hasTrace || atLastStep;
+  playButton.disabled = !hasTrace;
+  playButton.textContent =
+    state.playTimer === undefined ? "Play" : "Pause";
+
+  renderAnswers();
+  renderTrace();
+
+  if (!hasTrace) {
+    stepCounter.textContent = "No trace loaded.";
+    eventKind.textContent = "Waiting";
+    eventDescription.textContent =
+      "Run the demo to receive events from the Go interpreter.";
+    currentGoal.textContent = "—";
+    currentFact.textContent = "—";
+    renderBindings();
+
+    return;
+  }
+
+  const event = state.events[state.currentIndex];
+
+  stepCounter.textContent = `Step ${state.currentIndex + 1} of ${state.events.length}`;
+  eventKind.textContent = labels[event.type];
+  eventDescription.textContent = event.description;
+  currentGoal.textContent = event.goal ?? "—";
+  currentFact.textContent = event.fact ?? "—";
+
+  renderBindings(event.bindings);
+}
+
+function renderBindings(bindings?: Record<string, string>): void {
+  bindingsList.replaceChildren();
+
+  const entries = Object.entries(bindings ?? {}).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+
+  if (entries.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "No variable bindings yet.";
+    bindingsList.append(empty);
+    return;
+  }
+
+  for (const [variable, value] of entries) {
+    const row = document.createElement("div");
+    row.className = "binding-row";
+
+    const variableElement = document.createElement("code");
+    variableElement.textContent = variable;
+
+    const equalsElement = document.createElement("span");
+    equalsElement.textContent = "=";
+
+    const valueElement = document.createElement("code");
+    valueElement.textContent = value;
+
+    row.append(variableElement, equalsElement, valueElement);
+    bindingsList.append(row);
+  }
+}
+
+function renderTrace(): void {
+  traceList.replaceChildren();
+
+  const fragment = document.createDocumentFragment();
+
+  state.events.forEach((event, index) => {
+    const item = document.createElement("li");
+    const safeDepth = Math.max(0, Math.min(event.depth, 12));
+
+    item.className = `trace-row trace-${event.type}`;
+
+    if (index === state.currentIndex) {
+      item.classList.add("is-current");
+    }
+
+    if (index > state.currentIndex) {
+      item.classList.add("is-future");
+    }
+
+    item.style.setProperty("--depth", String(safeDepth));
+    item.title = "Jump to this operation";
+
+    item.addEventListener("click", () => {
+      stopPlayback();
+      state.currentIndex = index;
+      render();
+    });
+
+    const heading = document.createElement("div");
+    heading.className = "trace-heading";
+
+    const tag = document.createElement("span");
+    tag.className = "trace-tag";
+    tag.textContent = labels[event.type];
+
+    const summary = document.createElement("strong");
+    summary.textContent = event.description;
+
+    heading.append(tag, summary);
+
+    const details = document.createElement("p");
+    details.className = "trace-details";
+
+    const context: string[] = [];
+
+    if (event.goal) {
+      context.push(`Goal: ${event.goal}`);
+    }
+
+    if (event.fact) {
+      context.push(`Fact: ${event.fact}`);
+    }
+
+    details.textContent =
+      context.length > 0 ? context.join("  •  ") : "No goal or fact attached.";
+
+    item.append(heading, details);
+    fragment.append(item);
+  });
+
+  traceList.append(fragment);
+}
+
+function renderAnswers(): void {
+  answersList.replaceChildren();
+
+  if (state.answers.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "No solutions found yet.";
+    answersList.append(empty);
+    return;
+  }
+
+  state.answers.forEach((answer, index) => {
+    const line = document.createElement("p");
+    line.className = "answer";
+
+    const bindings = Object.entries(answer)
+      .map(([variable, value]) => `${variable} = ${value}`)
+      .join(", ");
+
+    line.textContent = `Answer ${index + 1}: ${bindings || "true"}`;
+    answersList.append(line);
+  });
+}
+
+function showError(message: string): void {
+  errorBox.hidden = false;
+  errorBox.textContent = message;
+}
+
+function clearError(): void {
+  errorBox.hidden = true;
+  errorBox.textContent = "";
+}
