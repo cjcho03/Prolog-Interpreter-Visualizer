@@ -1,35 +1,40 @@
 # Prolog Interpreter
 
-This project is a basic Prolog interpreter written in Go.
+This project is a basic Prolog interpreter written in Go, with a small TypeScript visualizer for stepping through execution traces.
 
-Right now, it only includes the core pieces needed to get a simple interpreter working:
+Right now, it includes the core pieces needed for a working Prolog-style resolver:
 
 * Atoms
 * Variables
 * Predicates
-* Facts
+* Facts and rules
+* Clauses
 * Unification
 * Multiple query goals
-* Depth-first search
-* Basic backtracking
-* Tests for unification and query resolution
+* Rule-body expansion
+* Depth-first resolution
+* Backtracking
+* Recursive rules
+* Variable standardization for separate rule calls
+* Execution tracing for goals, clause attempts, unification, failures, backtracking, and solutions
+* A fixed visualizer demo for showing the resolution process
+* Tests for unification, facts, rules, backtracking, and recursive resolution
 
-The current version does not yet parse normal Prolog source code. Facts and queries are created directly in Go so the underlying logic can be tested first.
+The current version does not yet parse normal Prolog source code. Facts, rules, and queries are created directly in Go so the interpreter logic can be developed and tested before adding parsing.
 
 ## Planned Features
 
 Future versions may add:
 
-* Rules, such as `grandparent(X, Z) :- parent(X, Y), parent(Y, Z).`
 * A parser for `.pl` Prolog files
 * A command-line interface
 * Interactive queries using `?-`
+* User-entered programs and queries through the visualizer
 * Built-in predicates
 * Lists
 * Anonymous variables using `_`
 * Negation
 * Cut (`!`)
-* Recursion support through rules
 * Better error handling
-* Query tracing to show unification and backtracking steps
+* Additional trace events for rule expansion
 * More complete test coverage
