@@ -1,7 +1,8 @@
 export type TraceEventType =
   | "goal"
-  | "try_fact"
+  | "try_clause"
   | "unified"
+  | "rule_expanded"
   | "failed"
   | "backtrack"
   | "solution";
@@ -10,7 +11,8 @@ export interface TraceEvent {
   type: TraceEventType;
   depth: number;
   goal?: string;
-  fact?: string;
+  clause?: string;
+  expandedGoals?: string[];
   bindings?: Record<string, string>;
   description: string;
 }

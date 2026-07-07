@@ -19,12 +19,8 @@ func DemoHandler(engine Engine) http.HandlerFunc {
 
 		query := []Predicate{
 			{
-				Name: "parent",
-				Args: []Term{Atom("alice"), Var("X")},
-			},
-			{
-				Name: "parent",
-				Args: []Term{Var("X"), Var("Y")},
+				Name: "grandparent",
+				Args: []Term{Atom("alice"), Var("Who")},
 			},
 		}
 

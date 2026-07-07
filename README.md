@@ -16,7 +16,7 @@ Right now, it includes the core pieces needed for a working Prolog-style resolve
 * Backtracking
 * Recursive rules
 * Variable standardization for separate rule calls
-* Execution tracing for goals, clause attempts, unification, failures, backtracking, and solutions
+* Execution tracing for goals, clause attempts, unification, rule expansion, failures, backtracking, and solutions
 * A fixed visualizer demo for showing the resolution process
 * Tests for unification, facts, rules, backtracking, and recursive resolution
 
@@ -36,5 +36,4 @@ Future versions may add:
 * Negation
 * Cut (`!`)
 * Better error handling
-* Additional trace events for rule expansion
 * More complete test coverage

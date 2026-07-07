@@ -21,7 +21,8 @@ const stepCounter = getElement<HTMLParagraphElement>("step-counter");
 const eventKind = getElement<HTMLParagraphElement>("event-kind");
 const eventDescription = getElement<HTMLParagraphElement>("event-description");
 const currentGoal = getElement<HTMLParagraphElement>("current-goal");
-const currentFact = getElement<HTMLParagraphElement>("current-fact");
+const currentClause = getElement<HTMLParagraphElement>("current-clause");
+const expandedGoalsList = getElement<HTMLDivElement>("expanded-goals");
 const bindingsList = getElement<HTMLDivElement>("bindings");
 const traceList = getElement<HTMLOListElement>("trace-list");
 const answersList = getElement<HTMLDivElement>("answers");
@@ -29,8 +30,9 @@ const errorBox = getElement<HTMLParagraphElement>("error-message");
 
 const labels: Record<TraceEventType, string> = {
   goal: "Goal",
-  try_fact: "Try Fact",
+  try_clause: "Try Clause",
   unified: "Unified",
+  rule_expanded: "Rule Expanded",
   failed: "Failed",
   backtrack: "Backtrack",
   solution: "Solution",
@@ -138,6 +140,14 @@ function stopPlayback(): void {
   }
 }
 
+function formatTraceText(text: string): string {
+  // $1_Y becomes Y#1 so standardized-apart variables are easier to read.
+  return text.replace(
+    /\$(\d+)_([A-Za-z][A-Za-z0-9_]*)/g,
+    (_match, id: string, name: string) => `${name}#${id}`,
+  );
+}
+
 function render(): void {
   const hasTrace = state.events.length > 0 && state.currentIndex >= 0;
   const atFirstStep = state.currentIndex <= 0;
@@ -149,8 +159,7 @@ function render(): void {
   previousButton.disabled = !hasTrace || atFirstStep;
   nextButton.disabled = !hasTrace || atLastStep;
   playButton.disabled = !hasTrace;
-  playButton.textContent =
-    state.playTimer === undefined ? "Play" : "Pause";
+  playButton.textContent = state.playTimer === undefined ? "Play" : "Pause";
 
   renderAnswers();
   renderTrace();
@@ -161,9 +170,9 @@ function render(): void {
     eventDescription.textContent =
       "Run the demo to receive events from the Go interpreter.";
     currentGoal.textContent = "—";
-    currentFact.textContent = "—";
+    currentClause.textContent = "—";
+    renderExpandedGoals();
     renderBindings();
-
     return;
   }
 
@@ -172,23 +181,45 @@ function render(): void {
   stepCounter.textContent = `Step ${state.currentIndex + 1} of ${state.events.length}`;
   eventKind.textContent = labels[event.type];
   eventDescription.textContent = event.description;
-  currentGoal.textContent = event.goal ?? "—";
-  currentFact.textContent = event.fact ?? "—";
+  currentGoal.textContent = event.goal ? formatTraceText(event.goal) : "—";
+  currentClause.textContent = event.clause
+    ? formatTraceText(event.clause)
+    : "—";
 
+  renderExpandedGoals(event.expandedGoals);
   renderBindings(event.bindings);
+}
+
+function renderExpandedGoals(goals?: string[]): void {
+  expandedGoalsList.replaceChildren();
+
+  if (!goals || goals.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "This operation does not expand a rule.";
+    expandedGoalsList.append(empty);
+    return;
+  }
+
+  for (const goal of goals) {
+    const item = document.createElement("code");
+    item.className = "expanded-goal";
+    item.textContent = formatTraceText(goal);
+    expandedGoalsList.append(item);
+  }
 }
 
 function renderBindings(bindings?: Record<string, string>): void {
   bindingsList.replaceChildren();
 
-  const entries = Object.entries(bindings ?? {}).sort(([left], [right]) =>
-    left.localeCompare(right),
-  );
+  const entries = Object.entries(bindings ?? {})
+    .filter(([variable]) => !variable.startsWith("$"))
+    .sort(([left], [right]) => left.localeCompare(right));
 
   if (entries.length === 0) {
     const empty = document.createElement("p");
     empty.className = "empty-state";
-    empty.textContent = "No variable bindings yet.";
+    empty.textContent = "No query variable bindings yet.";
     bindingsList.append(empty);
     return;
   }
@@ -204,7 +235,7 @@ function renderBindings(bindings?: Record<string, string>): void {
     equalsElement.textContent = "=";
 
     const valueElement = document.createElement("code");
-    valueElement.textContent = value;
+    valueElement.textContent = formatTraceText(value);
 
     row.append(variableElement, equalsElement, valueElement);
     bindingsList.append(row);
@@ -257,15 +288,22 @@ function renderTrace(): void {
     const context: string[] = [];
 
     if (event.goal) {
-      context.push(`Goal: ${event.goal}`);
+      context.push(`Goal: ${formatTraceText(event.goal)}`);
     }
 
-    if (event.fact) {
-      context.push(`Fact: ${event.fact}`);
+    if (event.clause) {
+      context.push(`Clause: ${formatTraceText(event.clause)}`);
+    }
+
+    if (event.expandedGoals && event.expandedGoals.length > 0) {
+      const goals = event.expandedGoals.map(formatTraceText).join(", ");
+      context.push(`Expands to: ${goals}`);
     }
 
     details.textContent =
-      context.length > 0 ? context.join("  •  ") : "No goal or fact attached.";
+      context.length > 0
+        ? context.join("  •  ")
+        : "No goal, clause, or expansion attached.";
 
     item.append(heading, details);
     fragment.append(item);
@@ -290,7 +328,8 @@ function renderAnswers(): void {
     line.className = "answer";
 
     const bindings = Object.entries(answer)
-      .map(([variable, value]) => `${variable} = ${value}`)
+      .filter(([variable]) => !variable.startsWith("$"))
+      .map(([variable, value]) => `${variable} = ${formatTraceText(value)}`)
       .join(", ");
 
     line.textContent = `Answer ${index + 1}: ${bindings || "true"}`;
