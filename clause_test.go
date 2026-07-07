@@ -53,3 +53,46 @@ func TestRuleCreatesClauseWithBody(t *testing.T) {
 		t.Fatalf("unexpected second rule goal: %s", clause.Body[1].String())
 	}
 }
+
+func TestStandardizeApartRenamesVariablesConsistently(t *testing.T) {
+	clause := Rule(
+		p("grandparent", Var("X"), Var("Z")),
+		p("parent", Var("X"), Var("Y")),
+		p("parent", Var("Y"), Var("Z")),
+	)
+
+	got := standardizeApart(clause, 7)
+
+	if got.Head.String() != "grandparent($7_X, $7_Z)" {
+		t.Fatalf("unexpected standardized head: %s", got.Head.String())
+	}
+
+	if got.Body[0].String() != "parent($7_X, $7_Y)" {
+		t.Fatalf("unexpected first standardized goal: %s", got.Body[0].String())
+	}
+
+	if got.Body[1].String() != "parent($7_Y, $7_Z)" {
+		t.Fatalf("unexpected second standardized goal: %s", got.Body[1].String())
+	}
+
+	if clause.Head.String() != "grandparent(X, Z)" {
+		t.Fatalf("standardizeApart should not modify original clause: %s", clause.Head.String())
+	}
+}
+
+func TestStandardizeApartCreatesDifferentVariablesForEachUse(t *testing.T) {
+	clause := Rule(
+		p("ancestor", Var("X"), Var("Y")),
+		p("parent", Var("X"), Var("Y")),
+	)
+
+	first := standardizeApart(clause, 1)
+	second := standardizeApart(clause, 2)
+
+	if first.Head.String() == second.Head.String() {
+		t.Fatalf(
+			"expected separate clause uses to have distinct variables, got %s",
+			first.Head.String(),
+		)
+	}
+}

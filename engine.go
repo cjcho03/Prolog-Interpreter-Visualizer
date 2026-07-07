@@ -61,13 +61,12 @@ func (e Engine) SolveWithTrace(
 
 			nextSub := copySubstitution(sub)
 
-			// Keep EventTryFact for now so the existing frontend still works.
-			// The event now represents either a fact or a rule.
+			// A clause may be either a fact or a rule.
 			emit(sink, TraceEvent{
-				Type:        EventTryFact,
+				Type:        EventTryClause,
 				Depth:       depth,
 				Goal:        currentGoal.String(),
-				Fact:        clause.String(),
+				Clause:      clause.String(),
 				Bindings:    snapshotBindings(nextSub),
 				Description: "Trying this clause against the current goal.",
 			})
@@ -77,7 +76,7 @@ func (e Engine) SolveWithTrace(
 					Type:        EventFailed,
 					Depth:       depth,
 					Goal:        currentGoal.String(),
-					Fact:        clause.String(),
+					Clause:      clause.String(),
 					Bindings:    snapshotBindings(nextSub),
 					Description: "This clause does not unify with the goal.",
 				})
@@ -91,10 +90,22 @@ func (e Engine) SolveWithTrace(
 				Type:        EventUnified,
 				Depth:       depth,
 				Goal:        currentGoal.String(),
-				Fact:        clause.String(),
+				Clause:      clause.String(),
 				Bindings:    snapshotBindings(nextSub),
 				Description: "Unification succeeded.",
 			})
+
+			if !freshClause.IsFact() {
+				emit(sink, TraceEvent{
+					Type:          EventRuleExpanded,
+					Depth:         depth,
+					Goal:          currentGoal.String(),
+					Clause:        clause.String(),
+					ExpandedGoals: resolvedGoalStrings(freshClause.Body, nextSub),
+					Bindings:      snapshotBindings(nextSub),
+					Description:   "Rule matched. Expanding its body into the next goals.",
+				})
+			}
 
 			// A fact has no body, so this simply continues with the remaining
 			// query goals. A rule inserts its body before those goals.
@@ -114,7 +125,7 @@ func (e Engine) SolveWithTrace(
 					Type:        EventBacktrack,
 					Depth:       depth,
 					Goal:        currentGoal.String(),
-					Fact:        clause.String(),
+					Clause:      clause.String(),
 					Bindings:    snapshotBindings(nextSub),
 					Description: "This branch produced no solution. Backtracking to try another clause.",
 				})
@@ -138,4 +149,14 @@ func (e Engine) SolveWithTrace(
 
 	search(goals, Substitution{}, 0)
 	return results
+}
+
+func resolvedGoalStrings(goals []Predicate, sub Substitution) []string {
+	result := make([]string, len(goals))
+
+	for i, goal := range goals {
+		result[i] = resolvePredicate(goal, sub).String()
+	}
+
+	return result
 }
