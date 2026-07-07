@@ -176,8 +176,22 @@ code {
   border-left-color: #7aa8ff;
 }
 
-.trace-try_fact {
+.trace-try_clause {
   border-left-color: #f0bc69;
+}
+
+.trace-rule_expanded {
+  border-left-color: #b9a2ff;
+}
+
+.expanded-goals {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.expanded-goal {
+  display: block;
+  width: fit-content;
 }
 
 .trace-unified {
