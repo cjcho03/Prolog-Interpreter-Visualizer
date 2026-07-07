@@ -1,23 +1,38 @@
 package prolog
 
 type Engine struct {
-	Facts []Predicate
+	Clauses []Clause
 }
 
 func (e Engine) Solve(goals ...Predicate) []Substitution {
 	return e.SolveWithTrace(nil, goals...)
 }
-func (e Engine) SolveWithTrace(sink TraceSink, goals ...Predicate) []Substitution {
+
+func (e Engine) SolveWithTrace(
+	sink TraceSink,
+	goals ...Predicate,
+) []Substitution {
 	var results []Substitution
 
-	// Returns true when this branch produces at least one solution
-	var search func(goalIndex int, sub Substitution) bool
+	// Gives each clause use a distinct set of internal variables.
+	nextClauseID := 1
 
-	search = func(goalIndex int, sub Substitution) bool {
-		if goalIndex == len(goals) {
+	// Returns true when this path produces at least one solution.
+	var search func(
+		remainingGoals []Predicate,
+		sub Substitution,
+		depth int,
+	) bool
+
+	search = func(
+		remainingGoals []Predicate,
+		sub Substitution,
+		depth int,
+	) bool {
+		if len(remainingGoals) == 0 {
 			emit(sink, TraceEvent{
 				Type:        EventSolution,
-				Depth:       goalIndex,
+				Depth:       depth,
 				Bindings:    snapshotBindings(sub),
 				Description: "All goals matched. Solution found.",
 			})
@@ -26,11 +41,12 @@ func (e Engine) SolveWithTrace(sink TraceSink, goals ...Predicate) []Substitutio
 			return true
 		}
 
-		currentGoal := goals[goalIndex]
+		currentGoal := resolvePredicate(remainingGoals[0], sub)
+		remainingAfterGoal := remainingGoals[1:]
 
 		emit(sink, TraceEvent{
 			Type:        EventGoal,
-			Depth:       goalIndex,
+			Depth:       depth,
 			Goal:        currentGoal.String(),
 			Bindings:    snapshotBindings(sub),
 			Description: "Trying to satisfy the next goal.",
@@ -39,49 +55,68 @@ func (e Engine) SolveWithTrace(sink TraceSink, goals ...Predicate) []Substitutio
 		foundMatch := false
 		foundSolution := false
 
-		for _, fact := range e.Facts {
+		for _, clause := range e.Clauses {
+			freshClause := standardizeApart(clause, nextClauseID)
+			nextClauseID++
+
 			nextSub := copySubstitution(sub)
 
+			// Keep EventTryFact for now so the existing frontend still works.
+			// The event now represents either a fact or a rule.
 			emit(sink, TraceEvent{
 				Type:        EventTryFact,
-				Depth:       goalIndex,
+				Depth:       depth,
 				Goal:        currentGoal.String(),
-				Fact:        fact.String(),
+				Fact:        clause.String(),
 				Bindings:    snapshotBindings(nextSub),
-				Description: "Trying this fact against the current goal.",
+				Description: "Trying this clause against the current goal.",
 			})
 
-			if !unifyPredicate(currentGoal, fact, nextSub) {
+			if !unifyPredicate(currentGoal, freshClause.Head, nextSub) {
 				emit(sink, TraceEvent{
 					Type:        EventFailed,
-					Depth:       goalIndex,
+					Depth:       depth,
 					Goal:        currentGoal.String(),
-					Fact:        fact.String(),
+					Fact:        clause.String(),
 					Bindings:    snapshotBindings(nextSub),
-					Description: "This fact does not unify with the goal.",
+					Description: "This clause does not unify with the goal.",
 				})
+
 				continue
 			}
 
 			foundMatch = true
+
 			emit(sink, TraceEvent{
 				Type:        EventUnified,
-				Depth:       goalIndex,
+				Depth:       depth,
 				Goal:        currentGoal.String(),
-				Fact:        fact.String(),
+				Fact:        clause.String(),
 				Bindings:    snapshotBindings(nextSub),
 				Description: "Unification succeeded.",
 			})
-			branchSucceeded := search(goalIndex+1, nextSub)
+
+			// A fact has no body, so this simply continues with the remaining
+			// query goals. A rule inserts its body before those goals.
+			nextGoals := make(
+				[]Predicate,
+				0,
+				len(freshClause.Body)+len(remainingAfterGoal),
+			)
+
+			nextGoals = append(nextGoals, freshClause.Body...)
+			nextGoals = append(nextGoals, remainingAfterGoal...)
+
+			branchSucceeded := search(nextGoals, nextSub, depth+1)
 
 			if !branchSucceeded {
 				emit(sink, TraceEvent{
 					Type:        EventBacktrack,
-					Depth:       goalIndex,
+					Depth:       depth,
 					Goal:        currentGoal.String(),
-					Fact:        fact.String(),
+					Fact:        clause.String(),
 					Bindings:    snapshotBindings(nextSub),
-					Description: "This branch produced no solution. Backtracking to try another fact.",
+					Description: "This branch produced no solution. Backtracking to try another clause.",
 				})
 			} else {
 				foundSolution = true
@@ -91,15 +126,16 @@ func (e Engine) SolveWithTrace(sink TraceSink, goals ...Predicate) []Substitutio
 		if !foundMatch {
 			emit(sink, TraceEvent{
 				Type:        EventBacktrack,
-				Depth:       goalIndex,
+				Depth:       depth,
 				Goal:        currentGoal.String(),
 				Bindings:    snapshotBindings(sub),
-				Description: "No remaining facts match this goal. Returning to the previous decision.",
+				Description: "No remaining clauses match this goal. Returning to the previous decision.",
 			})
 		}
+
 		return foundSolution
 	}
 
-	search(0, Substitution{})
+	search(goals, Substitution{}, 0)
 	return results
 }

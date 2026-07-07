@@ -1,86 +1,90 @@
-// engine_test.go
 package prolog
 
 import "testing"
 
-func TestSolveSingleGoal(t *testing.T) {
-	engine := Engine{
-		Facts: []Predicate{
-			{Name: "parent", Args: []Term{Atom("alice"), Atom("bob")}},
-			{Name: "parent", Args: []Term{Atom("alice"), Atom("carol")}},
-			{Name: "parent", Args: []Term{Atom("bob"), Atom("diana")}},
-		},
-	}
-
-	answers := engine.Solve(
-		Predicate{
-			Name: "parent",
-			Args: []Term{Atom("alice"), Var("Who")},
-		},
-	)
-
-	if len(answers) != 2 {
-		t.Fatalf("expected 2 answers, got %d", len(answers))
-	}
-
-	if answers[0][Var("Who")] != Atom("bob") {
-		t.Fatalf("expected first answer Who = bob, got %v", answers[0][Var("Who")])
-	}
-
-	if answers[1][Var("Who")] != Atom("carol") {
-		t.Fatalf("expected second answer Who = carol, got %v", answers[1][Var("Who")])
+func p(name string, args ...Term) Predicate {
+	return Predicate{
+		Name: name,
+		Args: args,
 	}
 }
 
-func TestSolveTwoGoals(t *testing.T) {
+func requireAtomBinding(
+	t *testing.T,
+	answer Substitution,
+	variable Var,
+	want Atom,
+) {
+	t.Helper()
+
+	got := dereference(variable, answer)
+
+	atom, ok := got.(Atom)
+	if !ok {
+		t.Fatalf("expected %s to resolve to an atom, got %v", variable, got)
+	}
+
+	if atom != want {
+		t.Fatalf("expected %s = %s, got %s", variable, want, atom)
+	}
+}
+
+func TestSolveSingleFactGoal(t *testing.T) {
 	engine := Engine{
-		Facts: []Predicate{
-			{Name: "parent", Args: []Term{Atom("alice"), Atom("bob")}},
-			{Name: "parent", Args: []Term{Atom("alice"), Atom("carol")}},
-			{Name: "parent", Args: []Term{Atom("bob"), Atom("diana")}},
-			{Name: "parent", Args: []Term{Atom("carol"), Atom("eli")}},
+		Clauses: []Clause{
+			Fact(p("parent", Atom("alice"), Atom("bob"))),
+			Fact(p("parent", Atom("alice"), Atom("carol"))),
+			Fact(p("parent", Atom("bob"), Atom("diana"))),
 		},
 	}
 
-	// parent(alice, X), parent(X, Y).
 	answers := engine.Solve(
-		Predicate{
-			Name: "parent",
-			Args: []Term{Atom("alice"), Var("X")},
-		},
-		Predicate{
-			Name: "parent",
-			Args: []Term{Var("X"), Var("Y")},
-		},
+		p("parent", Atom("alice"), Var("Who")),
 	)
 
 	if len(answers) != 2 {
 		t.Fatalf("expected 2 answers, got %d", len(answers))
 	}
 
-	if answers[0][Var("X")] != Atom("bob") ||
-		answers[0][Var("Y")] != Atom("diana") {
-		t.Fatalf("expected first answer X=bob, Y=diana; got %v", answers[0])
+	requireAtomBinding(t, answers[0], Var("Who"), Atom("bob"))
+	requireAtomBinding(t, answers[1], Var("Who"), Atom("carol"))
+}
+
+func TestSolveMultipleFactGoals(t *testing.T) {
+	engine := Engine{
+		Clauses: []Clause{
+			Fact(p("parent", Atom("alice"), Atom("bob"))),
+			Fact(p("parent", Atom("alice"), Atom("carol"))),
+			Fact(p("parent", Atom("bob"), Atom("diana"))),
+			Fact(p("parent", Atom("carol"), Atom("eli"))),
+		},
 	}
 
-	if answers[1][Var("X")] != Atom("carol") ||
-		answers[1][Var("Y")] != Atom("eli") {
-		t.Fatalf("expected second answer X=carol, Y=eli; got %v", answers[1])
+	answers := engine.Solve(
+		p("parent", Atom("alice"), Var("X")),
+		p("parent", Var("X"), Var("Y")),
+	)
+
+	if len(answers) != 2 {
+		t.Fatalf("expected 2 answers, got %d", len(answers))
 	}
+
+	requireAtomBinding(t, answers[0], Var("X"), Atom("bob"))
+	requireAtomBinding(t, answers[0], Var("Y"), Atom("diana"))
+
+	requireAtomBinding(t, answers[1], Var("X"), Atom("carol"))
+	requireAtomBinding(t, answers[1], Var("Y"), Atom("eli"))
 }
 
 func TestSolveNoMatches(t *testing.T) {
 	engine := Engine{
-		Facts: []Predicate{
-			{Name: "parent", Args: []Term{Atom("alice"), Atom("bob")}},
+		Clauses: []Clause{
+			Fact(p("parent", Atom("alice"), Atom("bob"))),
 		},
 	}
 
 	answers := engine.Solve(
-		Predicate{
-			Name: "parent",
-			Args: []Term{Atom("diana"), Var("Who")},
-		},
+		p("parent", Atom("diana"), Var("Who")),
 	)
 
 	if len(answers) != 0 {
@@ -88,37 +92,136 @@ func TestSolveNoMatches(t *testing.T) {
 	}
 }
 
-func TestSolveBacktracksAfterFailure(t *testing.T) {
+func TestSolveBacktracksAcrossFacts(t *testing.T) {
 	engine := Engine{
-		Facts: []Predicate{
-			{Name: "parent", Args: []Term{Atom("alice"), Atom("bob")}},
-			{Name: "parent", Args: []Term{Atom("alice"), Atom("carol")}},
-			{Name: "parent", Args: []Term{Atom("carol"), Atom("eli")}},
+		Clauses: []Clause{
+			Fact(p("parent", Atom("alice"), Atom("bob"))),
+			Fact(p("parent", Atom("alice"), Atom("carol"))),
+			Fact(p("parent", Atom("carol"), Atom("eli"))),
 		},
 	}
 
-	// The engine first tries X = bob, but bob has no child.
-	// It must backtrack and try X = carol.
 	answers := engine.Solve(
-		Predicate{
-			Name: "parent",
-			Args: []Term{Atom("alice"), Var("X")},
-		},
-		Predicate{
-			Name: "parent",
-			Args: []Term{Var("X"), Var("Y")},
-		},
+		p("parent", Atom("alice"), Var("X")),
+		p("parent", Var("X"), Var("Y")),
 	)
 
 	if len(answers) != 1 {
 		t.Fatalf("expected 1 answer after backtracking, got %d", len(answers))
 	}
 
-	if answers[0][Var("X")] != Atom("carol") {
-		t.Fatalf("expected X = carol, got %v", answers[0][Var("X")])
+	requireAtomBinding(t, answers[0], Var("X"), Atom("carol"))
+	requireAtomBinding(t, answers[0], Var("Y"), Atom("eli"))
+}
+
+func TestSolveRule(t *testing.T) {
+	engine := Engine{
+		Clauses: []Clause{
+			Fact(p("parent", Atom("alice"), Atom("bob"))),
+			Fact(p("parent", Atom("bob"), Atom("diana"))),
+
+			Rule(
+				p("grandparent", Var("X"), Var("Z")),
+				p("parent", Var("X"), Var("Y")),
+				p("parent", Var("Y"), Var("Z")),
+			),
+		},
 	}
 
-	if answers[0][Var("Y")] != Atom("eli") {
-		t.Fatalf("expected Y = eli, got %v", answers[0][Var("Y")])
+	answers := engine.Solve(
+		p("grandparent", Atom("alice"), Var("Who")),
+	)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected 1 answer, got %d", len(answers))
 	}
+
+	requireAtomBinding(t, answers[0], Var("Who"), Atom("diana"))
+}
+
+func TestSolveRuleBodyBacktracks(t *testing.T) {
+	engine := Engine{
+		Clauses: []Clause{
+			Fact(p("parent", Atom("alice"), Atom("bob"))),
+			Fact(p("parent", Atom("alice"), Atom("carol"))),
+			Fact(p("parent", Atom("carol"), Atom("eli"))),
+
+			Rule(
+				p("grandparent", Var("X"), Var("Z")),
+				p("parent", Var("X"), Var("Y")),
+				p("parent", Var("Y"), Var("Z")),
+			),
+		},
+	}
+
+	answers := engine.Solve(
+		p("grandparent", Atom("alice"), Var("Who")),
+	)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected 1 answer, got %d", len(answers))
+	}
+
+	requireAtomBinding(t, answers[0], Var("Who"), Atom("eli"))
+}
+
+func TestSolveRecursiveRule(t *testing.T) {
+	engine := Engine{
+		Clauses: []Clause{
+			Fact(p("parent", Atom("alice"), Atom("bob"))),
+			Fact(p("parent", Atom("alice"), Atom("carol"))),
+			Fact(p("parent", Atom("bob"), Atom("diana"))),
+			Fact(p("parent", Atom("carol"), Atom("eli"))),
+
+			Rule(
+				p("ancestor", Var("X"), Var("Y")),
+				p("parent", Var("X"), Var("Y")),
+			),
+
+			Rule(
+				p("ancestor", Var("X"), Var("Y")),
+				p("parent", Var("X"), Var("Z")),
+				p("ancestor", Var("Z"), Var("Y")),
+			),
+		},
+	}
+
+	answers := engine.Solve(
+		p("ancestor", Atom("alice"), Var("Who")),
+	)
+
+	if len(answers) != 4 {
+		t.Fatalf("expected 4 answers, got %d", len(answers))
+	}
+
+	requireAtomBinding(t, answers[0], Var("Who"), Atom("bob"))
+	requireAtomBinding(t, answers[1], Var("Who"), Atom("carol"))
+	requireAtomBinding(t, answers[2], Var("Who"), Atom("diana"))
+	requireAtomBinding(t, answers[3], Var("Who"), Atom("eli"))
+}
+
+func TestSolveStandardizesRuleVariablesApart(t *testing.T) {
+	engine := Engine{
+		Clauses: []Clause{
+			Fact(p("parent", Atom("alice"), Atom("bob"))),
+			Fact(p("parent", Atom("carol"), Atom("eli"))),
+
+			Rule(
+				p("ancestor", Var("X"), Var("Y")),
+				p("parent", Var("X"), Var("Y")),
+			),
+		},
+	}
+
+	answers := engine.Solve(
+		p("ancestor", Atom("alice"), Var("First")),
+		p("ancestor", Atom("carol"), Var("Second")),
+	)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected 1 answer, got %d", len(answers))
+	}
+
+	requireAtomBinding(t, answers[0], Var("First"), Atom("bob"))
+	requireAtomBinding(t, answers[0], Var("Second"), Atom("eli"))
 }

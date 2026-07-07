@@ -7,30 +7,65 @@ import (
 	prolog "prolog-interpreter"
 )
 
+func predicate(name string, args ...prolog.Term) prolog.Predicate {
+	return prolog.Predicate{
+		Name: name,
+		Args: args,
+	}
+}
+
 func main() {
 	engine := prolog.Engine{
-		Facts: []prolog.Predicate{
-			{
-				Name: "parent",
-				Args: []prolog.Term{
+		Clauses: []prolog.Clause{
+			prolog.Fact(
+				predicate(
+					"parent",
 					prolog.Atom("alice"),
 					prolog.Atom("bob"),
-				},
-			},
-			{
-				Name: "parent",
-				Args: []prolog.Term{
+				),
+			),
+
+			prolog.Fact(
+				predicate(
+					"parent",
 					prolog.Atom("alice"),
 					prolog.Atom("carol"),
-				},
-			},
-			{
-				Name: "parent",
-				Args: []prolog.Term{
+				),
+			),
+
+			prolog.Fact(
+				predicate(
+					"parent",
+					prolog.Atom("bob"),
+					prolog.Atom("diana"),
+				),
+			),
+
+			prolog.Fact(
+				predicate(
+					"parent",
 					prolog.Atom("carol"),
 					prolog.Atom("eli"),
-				},
-			},
+				),
+			),
+
+			prolog.Rule(
+				predicate(
+					"grandparent",
+					prolog.Var("X"),
+					prolog.Var("Z"),
+				),
+				predicate(
+					"parent",
+					prolog.Var("X"),
+					prolog.Var("Y"),
+				),
+				predicate(
+					"parent",
+					prolog.Var("Y"),
+					prolog.Var("Z"),
+				),
+			),
 		},
 	}
 

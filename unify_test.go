@@ -5,22 +5,34 @@ import "testing"
 
 func TestUnifyVariableWithAtom(t *testing.T) {
 	sub := Substitution{}
-	ok := unify(Var("Who"), Atom("bob"), sub)
 
-	if !ok {
+	if !unify(Var("Who"), Atom("bob"), sub) {
+		t.Fatal("expected unification to succeed")
+	}
+
+	if sub[Var("Who")] != Atom("bob") {
+		t.Fatalf("expected Who = bob, got %v", sub[Var("who")])
+	}
+}
+
+func TestUnifyAtomWithVariable(t *testing.T) {
+	sub := Substitution{}
+
+	if !unify(Var("Who"), Atom("bob"), sub) {
 		t.Fatal("expected unification to succeed")
 	}
 	if sub[Var("Who")] != Atom("bob") {
-		t.Fatalf("expected Who = bob, got %v", sub[Var("Who")])
+		t.Fatalf("expected Who = bob, got %v", sub[Var("Whos")])
 	}
 }
 
 func TestUnifyMatchingAtoms(t *testing.T) {
 	sub := Substitution{}
-	ok := unify(Atom("alice"), Atom("alice"), sub)
-	if !ok {
+
+	if !unify(Atom("alice"), Atom("alice"), sub) {
 		t.Fatal("expected matching atoms to unify")
 	}
+
 	if len(sub) != 0 {
 		t.Fatalf("expected no bindings, got %v", sub)
 	}
@@ -28,18 +40,26 @@ func TestUnifyMatchingAtoms(t *testing.T) {
 
 func TestUnifyDifferentAtomsFails(t *testing.T) {
 	sub := Substitution{}
-	ok := unify(Atom("alice"), Atom("bob"), sub)
 
-	if ok {
-		t.Fatal("expected different atoms not to unify")
+	if unify(Atom("alice"), Atom("bob"), sub) {
+		t.Fatalf("expectd no bindings, got %v", sub)
+	}
+}
+
+func TestUnifyRespectsExistingBinding(t *testing.T) {
+	sub := Substitution{
+		Var("X"): Atom("alice"),
+	}
+
+	if unify(Var("X"), Atom("bob"), sub) {
+		t.Fatal("expected X = bob to fail when X is already alice")
 	}
 }
 
 func TestUnifySameVariable(t *testing.T) {
 	sub := Substitution{}
-	ok := unify(Var("X"), Var("X"), sub)
 
-	if !ok {
+	if !unify(Var("X"), Var("X"), sub) {
 		t.Fatal("expected X = X to succeed")
 	}
 
@@ -49,7 +69,21 @@ func TestUnifySameVariable(t *testing.T) {
 }
 
 func TestDereferenceVariableChain(t *testing.T) {
+	sub := Substitution{
+		Var("X"): Var("Y"),
+		Var("Y"): Atom("alice"),
+	}
+
+	got := dereference(Var("X"), sub)
+
+	if got != Atom("alice") {
+		t.Fatalf("expected X to resolve to alice, got %v", got)
+	}
+}
+
+func TestUnifyPredicate(t *testing.T) {
 	sub := Substitution{}
+
 	goal := Predicate{
 		Name: "parent",
 		Args: []Term{Atom("alice"), Var("Who")},
@@ -60,8 +94,7 @@ func TestDereferenceVariableChain(t *testing.T) {
 		Args: []Term{Atom("alice"), Atom("bob")},
 	}
 
-	ok := unifyPredicate(goal, fact, sub)
-	if !ok {
+	if !unifyPredicate(goal, fact, sub) {
 		t.Fatal("expected predicates to unify")
 	}
 
@@ -85,5 +118,23 @@ func TestUnifyPredicateDifferentNameFails(t *testing.T) {
 
 	if unifyPredicate(goal, fact, sub) {
 		t.Fatal("expected predicates with different names not to unify")
+	}
+}
+
+func TestUnifyPredicateDifferentArityFails(t *testing.T) {
+	sub := Substitution{}
+
+	goal := Predicate{
+		Name: "parent",
+		Args: []Term{Atom("alice"), Var("Who")},
+	}
+
+	fact := Predicate{
+		Name: "parent",
+		Args: []Term{Atom("alice")},
+	}
+
+	if unifyPredicate(goal, fact, sub) {
+		t.Fatal("expected predicates with different arity not to unify")
 	}
 }
