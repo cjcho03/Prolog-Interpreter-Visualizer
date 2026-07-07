@@ -20,14 +20,8 @@ func unify(left, right Term, sub Substitution) bool {
 	left = dereference(left, sub)
 	right = dereference(right, sub)
 
-	// X = X should succeed without storing X -> X
 	if left == right {
 		return true
-	}
-
-	if leftAtom, ok := left.(Atom); ok {
-		rightAtom, ok := right.(Atom)
-		return ok && leftAtom == rightAtom
 	}
 
 	if leftVar, ok := left.(Var); ok {
@@ -40,7 +34,10 @@ func unify(left, right Term, sub Substitution) bool {
 		return true
 	}
 
-	return false
+	leftAtom, leftIsAtom := left.(Atom)
+	rightAtom, rightIsAtom := right.(Atom)
+
+	return leftIsAtom && rightIsAtom && leftAtom == rightAtom
 }
 
 func unifyPredicate(goal Predicate, fact Predicate, sub Substitution) bool {
@@ -55,4 +52,17 @@ func unifyPredicate(goal Predicate, fact Predicate, sub Substitution) bool {
 	}
 
 	return true
+}
+
+func resolvePredicate(predicate Predicate, sub Substitution) Predicate {
+	args := make([]Term, len(predicate.Args))
+
+	for i, arg := range predicate.Args {
+		args[i] = dereference(arg, sub)
+	}
+
+	return Predicate{
+		Name: predicate.Name,
+		Args: args,
+	}
 }
