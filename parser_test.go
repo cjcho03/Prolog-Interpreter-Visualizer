@@ -1,0 +1,215 @@
+package prolog
+
+import "testing"
+
+func TestParseFact(t *testing.T) {
+	clauses, err := ParseProgram("parent(alice, bob).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(clauses) != 1 {
+		t.Fatalf("expected 1 clause, got %d", len(clauses))
+	}
+
+	if !clauses[0].IsFact() {
+		t.Fatal("expected parsed clause to be a fact")
+	}
+
+	if clauses[0].Head.String() != "parent(alice, bob)" {
+		t.Fatalf("unexpected fact head: %s", clauses[0].Head.String())
+	}
+}
+
+func TestParseRule(t *testing.T) {
+	src := `
+		grandparent(X, Z) :-
+			parent(X, Y),
+			parent(Y, Z).
+	`
+
+	clauses, err := ParseProgram(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(clauses) != 1 {
+		t.Fatalf("expected 1 clause, got %d", len(clauses))
+	}
+
+	if clauses[0].IsFact() {
+		t.Fatal("expected parsed clause to be a rule")
+	}
+
+	got := clauses[0].String()
+	want := "grandparent(X, Z) :- parent(X, Y), parent(Y, Z)"
+
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestParseMultipleClauses(t *testing.T) {
+	src := `
+		parent(alice, bob).
+		parent(bob, diana).
+
+		grandparent(X, Z) :-
+			parent(X, Y),
+			parent(Y, Z).
+	`
+
+	clauses, err := ParseProgram(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(clauses) != 3 {
+		t.Fatalf("expected 3 clauses, got %d", len(clauses))
+	}
+
+	if !clauses[0].IsFact() {
+		t.Fatal("expected first clause to be a fact")
+	}
+
+	if !clauses[1].IsFact() {
+		t.Fatal("expected second clause to be a fact")
+	}
+
+	if clauses[2].IsFact() {
+		t.Fatal("expected third clause to be a rule")
+	}
+}
+
+func TestParseQuery(t *testing.T) {
+	goals, err := ParseQuery("?- grandparent(alice, Who).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(goals) != 1 {
+		t.Fatalf("expected 1 query goal, got %d", len(goals))
+	}
+
+	got := goals[0].String()
+	want := "grandparent(alice, Who)"
+
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestParseMultipleGoalQuery(t *testing.T) {
+	goals, err := ParseQuery("?- parent(alice, X), parent(X, Y).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(goals) != 2 {
+		t.Fatalf("expected 2 query goals, got %d", len(goals))
+	}
+
+	if goals[0].String() != "parent(alice, X)" {
+		t.Fatalf("unexpected first goal: %s", goals[0].String())
+	}
+
+	if goals[1].String() != "parent(X, Y)" {
+		t.Fatalf("unexpected second goal: %s", goals[1].String())
+	}
+}
+
+func TestParseProgramThenSolve(t *testing.T) {
+	program := `
+		parent(alice, bob).
+		parent(alice, carol).
+		parent(bob, diana).
+		parent(carol, eli).
+
+		grandparent(X, Z) :-
+			parent(X, Y),
+			parent(Y, Z).
+	`
+
+	clauses, err := ParseProgram(program)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	query, err := ParseQuery("?- grandparent(alice, Who).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	engine := Engine{Clauses: clauses}
+
+	answers := engine.Solve(query...)
+
+	if len(answers) != 2 {
+		t.Fatalf("expected 2 answers, got %d", len(answers))
+	}
+
+	requireParserAtomBinding(t, answers[0], Var("Who"), Atom("diana"))
+	requireParserAtomBinding(t, answers[1], Var("Who"), Atom("eli"))
+}
+
+func TestParseSupportsComments(t *testing.T) {
+	src := `
+		% family facts
+		parent(alice, bob). % inline comment
+
+		% family rule
+		grandparent(X, Z) :-
+			parent(X, Y),
+			parent(Y, Z).
+	`
+
+	clauses, err := ParseProgram(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(clauses) != 2 {
+		t.Fatalf("expected 2 clauses, got %d", len(clauses))
+	}
+}
+
+func TestParseRejectsQueryInsideProgram(t *testing.T) {
+	_, err := ParseProgram("?- parent(alice, Who).")
+	if err == nil {
+		t.Fatal("expected ParseProgram to reject query syntax")
+	}
+}
+
+func TestParseRejectsAnonymousVariableForNow(t *testing.T) {
+	_, err := ParseQuery("?- parent(alice, _).")
+	if err == nil {
+		t.Fatal("expected anonymous variable to be rejected for now")
+	}
+}
+
+func TestParseRejectsNestedCompoundTermsForNow(t *testing.T) {
+	_, err := ParseQuery("?- likes(alice, food(pizza)).")
+	if err == nil {
+		t.Fatal("expected nested compound term to be rejected for now")
+	}
+}
+
+func requireParserAtomBinding(
+	t *testing.T,
+	answer Substitution,
+	variable Var,
+	want Atom,
+) {
+	t.Helper()
+
+	got := dereference(variable, answer)
+
+	atom, ok := got.(Atom)
+	if !ok {
+		t.Fatalf("expected %s to resolve to an atom, got %v", variable, got)
+	}
+
+	if atom != want {
+		t.Fatalf("expected %s = %s, got %s", variable, want, atom)
+	}
+}
