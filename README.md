@@ -29,7 +29,7 @@ The interpreter currently supports:
   * failures
   * backtracking
   * solutions
-* A fixed visualizer demo for showing the resolution process
+* A visualizer that accepts user-entered Prolog programs and queries
 * Tests for:
 
   * unification
