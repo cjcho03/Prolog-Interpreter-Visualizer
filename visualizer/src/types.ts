@@ -17,6 +17,11 @@ export interface TraceEvent {
   description: string;
 }
 
+export interface SolveRequest {
+  program: string;
+  query: string;
+}
+
 export interface SolveResponse {
   events: TraceEvent[];
   answers: Record<string, string>[];
