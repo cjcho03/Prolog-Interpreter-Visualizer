@@ -302,3 +302,86 @@ func requireParserAtomBinding(
 		t.Fatalf("expected %s = %s, got %s", variable, want, atom)
 	}
 }
+
+func TestParseNumberFact(t *testing.T) {
+	clauses, err := ParseProgram("age(alice, 30).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(clauses) != 1 {
+		t.Fatalf("expected 1 clause, got %d", len(clauses))
+	}
+
+	got := clauses[0].Head.String()
+	want := "age(alice, 30)"
+
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestParseNumberQuery(t *testing.T) {
+	goals, err := ParseQuery("?- age(alice, 30).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(goals) != 1 {
+		t.Fatalf("expected 1 query goal, got %d", len(goals))
+	}
+
+	got := goals[0].String()
+	want := "age(alice, 30)"
+
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestParseProgramThenSolveWithNumber(t *testing.T) {
+	program := `
+		age(alice, 30).
+		age(bob, 24).
+	`
+
+	clauses, err := ParseProgram(program)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	query, err := ParseQuery("?- age(alice, Age).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	engine := Engine{Clauses: clauses}
+
+	answers := engine.Solve(query...)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected 1 answer, got %d", len(answers))
+	}
+
+	requireParserNumberBinding(t, answers[0], Var("Age"), Number("30"))
+}
+
+func requireParserNumberBinding(
+	t *testing.T,
+	answer Substitution,
+	variable Var,
+	want Number,
+) {
+	t.Helper()
+
+	got := dereference(variable, answer)
+
+	number, ok := got.(Number)
+	if !ok {
+		t.Fatalf("expected %s to resolve to a number, got %v", variable, got)
+	}
+
+	if number != want {
+		t.Fatalf("expected %s = %s, got %s", variable, want, number)
+	}
+}

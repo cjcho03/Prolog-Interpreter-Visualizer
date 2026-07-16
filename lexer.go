@@ -11,6 +11,7 @@ const (
 	tokenEOF tokenType = iota
 	tokenIdent
 	tokenVar
+	tokenNumber
 	tokenLParen
 	tokenRParen
 	tokenComma
@@ -34,6 +35,8 @@ func (t token) String() string {
 		return fmt.Sprintf("identifier %q", t.literal)
 	case tokenVar:
 		return fmt.Sprintf("variable %q", t.literal)
+	case tokenNumber:
+		return fmt.Sprintf("number %q", t.literal)
 	case tokenLParen:
 		return "("
 	case tokenRParen:
@@ -115,25 +118,6 @@ func lex(src string) ([]token, error) {
 				line:    startLine,
 				column:  startColumn,
 			})
-		case ch == '-':
-			l.advance()
-
-			if l.peek() != '-' {
-				return nil, fmt.Errorf(
-					"%d:%d: expected '-' after ':'",
-					startLine,
-					startColumn,
-				)
-			}
-
-			l.advance()
-
-			tokens = append(tokens, token{
-				typ:     tokenColonDash,
-				literal: ":-",
-				line:    startLine,
-				column:  startColumn,
-			})
 		case ch == ':':
 			l.advance()
 
@@ -169,6 +153,15 @@ func lex(src string) ([]token, error) {
 			tokens = append(tokens, token{
 				typ:     tokenQuery,
 				literal: "?-",
+				line:    startLine,
+				column:  startColumn,
+			})
+		case unicode.IsDigit(ch):
+			literal := l.readNumber()
+
+			tokens = append(tokens, token{
+				typ:     tokenNumber,
+				literal: literal,
 				line:    startLine,
 				column:  startColumn,
 			})
@@ -221,6 +214,16 @@ func (l *lexer) readIdentifier() string {
 	start := l.pos
 
 	for isIdentifierPart(l.peek()) {
+		l.advance()
+	}
+
+	return string(l.input[start:l.pos])
+}
+
+func (l *lexer) readNumber() string {
+	start := l.pos
+
+	for unicode.IsDigit(l.peek()) {
 		l.advance()
 	}
 

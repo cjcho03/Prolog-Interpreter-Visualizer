@@ -225,3 +225,31 @@ func TestSolveStandardizesRuleVariablesApart(t *testing.T) {
 	requireAtomBinding(t, answers[0], Var("First"), Atom("bob"))
 	requireAtomBinding(t, answers[0], Var("Second"), Atom("eli"))
 }
+
+func TestSolveFactWithNumber(t *testing.T) {
+	engine := Engine{
+		Clauses: []Clause{
+			Fact(p("age", Atom("alice"), Number("30"))),
+			Fact(p("age", Atom("bob"), Number("24"))),
+		},
+	}
+
+	answers := engine.Solve(
+		p("age", Atom("alice"), Var("Age")),
+	)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected 1 answer, got %d", len(answers))
+	}
+
+	got := dereference(Var("Age"), answers[0])
+
+	number, ok := got.(Number)
+	if !ok {
+		t.Fatalf("expected Age to resolve to a number, got %v", got)
+	}
+
+	if number != Number("30") {
+		t.Fatalf("expected Age = 30, got %s", number)
+	}
+}

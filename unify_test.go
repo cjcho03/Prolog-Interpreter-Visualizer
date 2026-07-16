@@ -138,3 +138,35 @@ func TestUnifyPredicateDifferentArityFails(t *testing.T) {
 		t.Fatal("expected predicates with different arity not to unify")
 	}
 }
+
+func TestUnifyMatchingNumbers(t *testing.T) {
+	sub := Substitution{}
+
+	if !unify(Number("30"), Number("30"), sub) {
+		t.Fatal("expected matching numbers to unify")
+	}
+
+	if len(sub) != 0 {
+		t.Fatalf("expected no bindings, got %v", sub)
+	}
+}
+
+func TestUnifyDifferentNumbersFails(t *testing.T) {
+	sub := Substitution{}
+
+	if unify(Number("30"), Number("24"), sub) {
+		t.Fatalf("expected different numbers not to unify, got %v", sub)
+	}
+}
+
+func TestUnifyVariableWithNumber(t *testing.T) {
+	sub := Substitution{}
+
+	if !unify(Var("Age"), Number("30"), sub) {
+		t.Fatal("expected variable to unify with number")
+	}
+
+	if sub[Var("Age")] != Number("30") {
+		t.Fatalf("expected Age = 30, got %v", sub[Var("Age")])
+	}
+}

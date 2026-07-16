@@ -203,6 +203,9 @@ func (p *parser) parseTerm() (Term, error) {
 		}
 
 		return Atom(tok.literal), nil
+	case tokenNumber:
+		p.advance()
+		return Number(tok.literal), nil
 	case tokenVar:
 		p.advance()
 
@@ -280,6 +283,8 @@ func tokenName(typ tokenType) string {
 		return "EOF"
 	case tokenIdent:
 		return "identifier"
+	case tokenNumber:
+		return "number"
 	case tokenVar:
 		return "variable"
 	case tokenLParen:
