@@ -9,6 +9,7 @@ The goal is to build a small but understandable Prolog-style resolver from the g
 The interpreter currently supports:
 
 * Atoms
+* Numbers
 * Variables
 * Anonymous variables using `_`
 * Predicates
@@ -71,6 +72,18 @@ Anonymous variables are also supported when a value should be ignored:
 ```prolog
 ?- parent(alice, _).
 ?- parent(_, Who).
+```
+
+Number terms are supported as atomic values:
+
+```prolog
+age(alice, 30).
+age(bob, 24).
+
+?- age(alice, Age).
+```
+
+Parsed programs can be converted into the existing Go clause representation and executed by the resolver.
 
 Parsed programs can be converted into the existing Go clause representation and executed by the resolver.
 
@@ -107,7 +120,6 @@ This is still a small educational interpreter, not a full Prolog implementation.
 The current parser does not yet support:
 
 * Lists
-* Numbers
 * Strings
 * Nested compound terms such as `food(pizza)`
 * Arithmetic
@@ -117,7 +129,7 @@ The current parser does not yet support:
 * Operator precedence
 * Full Prolog syntax compatibility
 
-For now, terms are limited to atoms and variables, matching the current unification model.
+For now, terms are limited to atoms, numbers, and variables, matching the current unification model.
 
 ## Planned Features
 
@@ -126,11 +138,10 @@ Future versions may add:
 * A command-line interface
 * Loading `.pl` files from disk
 * Interactive queries using `?-`
-* User-entered programs and queries through the visualizer
 * Built-in predicates
 * Lists
 * Nested compound terms
-* Numbers and strings
+* Strings
 * Negation
 * Cut (`!`)
 * Better parser error messages
@@ -141,4 +152,4 @@ Future versions may add:
 
 The project has moved from a Go-only internal representation to a usable Prolog-like interpreter with parser support, a solve API, and a visualizer for user-entered programs and queries.
 
-The next major milestones are expanding the supported term model, improving parser errors, and adding more Prolog language features such as numbers, nested compound terms, lists, and built-in predicates.
+The next major milestones are expanding the supported term model, improving parser errors, and adding more Prolog language features such as nested compound terms, lists, strings, and built-in predicates.
