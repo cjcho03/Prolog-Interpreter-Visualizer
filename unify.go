@@ -37,7 +37,14 @@ func unify(left, right Term, sub Substitution) bool {
 	leftAtom, leftIsAtom := left.(Atom)
 	rightAtom, rightIsAtom := right.(Atom)
 
-	return leftIsAtom && rightIsAtom && leftAtom == rightAtom
+	if leftIsAtom && rightIsAtom {
+		return leftAtom == rightAtom
+	}
+
+	leftNumber, leftIsNumber := left.(Number)
+	rightNumber, rightIsNumber := right.(Number)
+
+	return leftIsNumber && rightIsNumber && leftNumber == rightNumber
 }
 
 func unifyPredicate(goal Predicate, fact Predicate, sub Substitution) bool {

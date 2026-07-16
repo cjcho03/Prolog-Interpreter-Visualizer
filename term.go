@@ -12,6 +12,12 @@ func (a Atom) String() string {
 	return string(a)
 }
 
+type Number string
+
+func (n Number) String() string {
+	return string(n)
+}
+
 type Var string
 
 func (v Var) String() string {
