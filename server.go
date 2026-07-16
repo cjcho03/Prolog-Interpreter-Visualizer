@@ -68,13 +68,13 @@ func SolveHandler() http.HandlerFunc {
 
 		clauses, err := ParseProgram(request.Program)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "program parse error")
+			writeError(w, http.StatusBadRequest, "program parse error: "+err.Error())
 			return
 		}
 
 		goals, err := ParseQuery(request.Query)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "query parse error")
+			writeError(w, http.StatusBadRequest, "query parse error: "+err.Error())
 			return
 		}
 
@@ -95,10 +95,11 @@ func solveWithEvents(engine Engine, goals ...Predicate) SolveResponse {
 		events = append(events, event)
 	}, goals...)
 
+	queryVars := queryVariables(goals)
 	answerMaps := make([]map[string]string, len(answers))
 
 	for i, answer := range answers {
-		answerMaps[i] = snapshotBindings(answer)
+		answerMaps[i] = answerBindings(answer, queryVars)
 	}
 
 	return SolveResponse{

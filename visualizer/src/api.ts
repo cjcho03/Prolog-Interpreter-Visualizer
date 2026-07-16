@@ -37,7 +37,7 @@ function isTraceEvent(value: unknown): value is TraceEvent {
     value.clause === undefined || typeof value.clause === "string"
   const hasValidExpandedGoals =
     value.expandedGoals === undefined || isStringArray(value.expandedGoals)
-  const hasValidBindngs =
+  const hasValidBindings =
     value.bindings === undefined || isStringRecord(value.bindings)
 
   return (
@@ -48,7 +48,7 @@ function isTraceEvent(value: unknown): value is TraceEvent {
     hasValidGoal &&
     hasValidClause &&
     hasValidExpandedGoals &&
-    hasValidBindngs
+    hasValidBindings
   )
 }
 

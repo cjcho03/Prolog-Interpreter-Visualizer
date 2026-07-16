@@ -14,6 +14,8 @@ func (e Engine) SolveWithTrace(
 ) []Substitution {
 	var results []Substitution
 
+	userQueryVars := queryVariables(goals)
+
 	// Gives each clause use a distinct set of internal variables.
 	nextClauseID := 1
 
@@ -33,7 +35,7 @@ func (e Engine) SolveWithTrace(
 			emit(sink, TraceEvent{
 				Type:        EventSolution,
 				Depth:       depth,
-				Bindings:    snapshotBindings(sub),
+				Bindings:    snapshotQueryBindings(sub, userQueryVars),
 				Description: "All goals matched. Solution found.",
 			})
 
@@ -48,7 +50,7 @@ func (e Engine) SolveWithTrace(
 			Type:        EventGoal,
 			Depth:       depth,
 			Goal:        currentGoal.String(),
-			Bindings:    snapshotBindings(sub),
+			Bindings:    snapshotQueryBindings(sub, userQueryVars),
 			Description: "Trying to satisfy the next goal.",
 		})
 
@@ -61,13 +63,12 @@ func (e Engine) SolveWithTrace(
 
 			nextSub := copySubstitution(sub)
 
-			// A clause may be either a fact or a rule.
 			emit(sink, TraceEvent{
 				Type:        EventTryClause,
 				Depth:       depth,
 				Goal:        currentGoal.String(),
 				Clause:      clause.String(),
-				Bindings:    snapshotBindings(nextSub),
+				Bindings:    snapshotQueryBindings(nextSub, userQueryVars),
 				Description: "Trying this clause against the current goal.",
 			})
 
@@ -77,7 +78,7 @@ func (e Engine) SolveWithTrace(
 					Depth:       depth,
 					Goal:        currentGoal.String(),
 					Clause:      clause.String(),
-					Bindings:    snapshotBindings(nextSub),
+					Bindings:    snapshotQueryBindings(nextSub, userQueryVars),
 					Description: "This clause does not unify with the goal.",
 				})
 
@@ -91,7 +92,7 @@ func (e Engine) SolveWithTrace(
 				Depth:       depth,
 				Goal:        currentGoal.String(),
 				Clause:      clause.String(),
-				Bindings:    snapshotBindings(nextSub),
+				Bindings:    snapshotQueryBindings(nextSub, userQueryVars),
 				Description: "Unification succeeded.",
 			})
 
@@ -102,13 +103,11 @@ func (e Engine) SolveWithTrace(
 					Goal:          currentGoal.String(),
 					Clause:        clause.String(),
 					ExpandedGoals: resolvedGoalStrings(freshClause.Body, nextSub),
-					Bindings:      snapshotBindings(nextSub),
+					Bindings:      snapshotQueryBindings(nextSub, userQueryVars),
 					Description:   "Rule matched. Expanding its body into the next goals.",
 				})
 			}
 
-			// A fact has no body, so this simply continues with the remaining
-			// query goals. A rule inserts its body before those goals.
 			nextGoals := make(
 				[]Predicate,
 				0,
@@ -126,7 +125,7 @@ func (e Engine) SolveWithTrace(
 					Depth:       depth,
 					Goal:        currentGoal.String(),
 					Clause:      clause.String(),
-					Bindings:    snapshotBindings(nextSub),
+					Bindings:    snapshotQueryBindings(nextSub, userQueryVars),
 					Description: "This branch produced no solution. Backtracking to try another clause.",
 				})
 			} else {
@@ -139,7 +138,7 @@ func (e Engine) SolveWithTrace(
 				Type:        EventBacktrack,
 				Depth:       depth,
 				Goal:        currentGoal.String(),
-				Bindings:    snapshotBindings(sub),
+				Bindings:    snapshotQueryBindings(sub, userQueryVars),
 				Description: "No remaining clauses match this goal. Returning to the previous decision.",
 			})
 		}
