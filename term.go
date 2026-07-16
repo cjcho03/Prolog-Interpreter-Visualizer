@@ -15,7 +15,13 @@ func (a Atom) String() string {
 type Var string
 
 func (v Var) String() string {
-	return string(v)
+	text := string(v)
+
+	if isAnonymousVar(v) {
+		return "_"
+	}
+
+	return text
 }
 
 type Predicate struct {
@@ -43,4 +49,8 @@ func copySubstitution(s Substitution) Substitution {
 	}
 
 	return result
+}
+
+func isAnonymousVar(variable Var) bool {
+	return strings.Contains(string(variable), "$anon_")
 }
