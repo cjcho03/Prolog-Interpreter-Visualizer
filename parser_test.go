@@ -180,11 +180,100 @@ func TestParseRejectsQueryInsideProgram(t *testing.T) {
 	}
 }
 
-func TestParseRejectsAnonymousVariableForNow(t *testing.T) {
-	_, err := ParseQuery("?- parent(alice, _).")
-	if err == nil {
-		t.Fatal("expected anonymous variable to be rejected for now")
+func TestParseSupportsAnonymousVariable(t *testing.T) {
+	goals, err := ParseQuery("?- parent(alice, _).")
+	if err != nil {
+		t.Fatal(err)
 	}
+
+	if len(goals) != 1 {
+		t.Fatalf("expected 1 query goal, got %d", len(goals))
+	}
+
+	got := goals[0].String()
+	want := "parent(alice, _)"
+
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestParseAnonymousVariablesAreDistinct(t *testing.T) {
+	goals, err := ParseQuery("?- same(_, _).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(goals) != 1 {
+		t.Fatalf("expected 1 query goal, got %d", len(goals))
+	}
+
+	first, ok := goals[0].Args[0].(Var)
+	if !ok {
+		t.Fatalf("expected first anonymous argument to be a Var")
+	}
+
+	second, ok := goals[0].Args[1].(Var)
+	if !ok {
+		t.Fatalf("expected second anonymous argument to be a Var")
+	}
+
+	if first == second {
+		t.Fatalf("expected each anonymous variable to be fresh, got %s", first)
+	}
+}
+
+func TestParseProgramThenSolveWithAnonymousVariable(t *testing.T) {
+	program := `
+		parent(alice, bob).
+		parent(alice, carol).
+	`
+
+	clauses, err := ParseProgram(program)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	query, err := ParseQuery("?- parent(alice, _).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	engine := Engine{Clauses: clauses}
+
+	answers := engine.Solve(query...)
+
+	if len(answers) != 2 {
+		t.Fatalf("expected 2 answers, got %d", len(answers))
+	}
+}
+
+func TestParseProgramThenSolveWithAnonymousVariableAndNamedVariable(t *testing.T) {
+	program := `
+		parent(alice, bob).
+		parent(carol, eli).
+	`
+
+	clauses, err := ParseProgram(program)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	query, err := ParseQuery("?- parent(_, Who).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	engine := Engine{Clauses: clauses}
+
+	answers := engine.Solve(query...)
+
+	if len(answers) != 2 {
+		t.Fatalf("expected 2 answers, got %d", len(answers))
+	}
+
+	requireParserAtomBinding(t, answers[0], Var("Who"), Atom("bob"))
+	requireParserAtomBinding(t, answers[1], Var("Who"), Atom("eli"))
 }
 
 func TestParseRejectsNestedCompoundTermsForNow(t *testing.T) {

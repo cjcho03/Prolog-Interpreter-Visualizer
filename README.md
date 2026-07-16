@@ -10,6 +10,7 @@ The interpreter currently supports:
 
 * Atoms
 * Variables
+* Anonymous variables using `_`
 * Predicates
 * Facts and rules
 * Clauses
@@ -65,6 +66,12 @@ Supported query syntax includes single-goal and multi-goal queries:
 ?- parent(alice, X), parent(X, Y).
 ```
 
+Anonymous variables are also supported when a value should be ignored:
+
+```prolog
+?- parent(alice, _).
+?- parent(_, Who).
+
 Parsed programs can be converted into the existing Go clause representation and executed by the resolver.
 
 ## Example
@@ -102,7 +109,6 @@ The current parser does not yet support:
 * Lists
 * Numbers
 * Strings
-* Anonymous variables using `_`
 * Nested compound terms such as `food(pizza)`
 * Arithmetic
 * Built-in predicates
@@ -123,7 +129,6 @@ Future versions may add:
 * User-entered programs and queries through the visualizer
 * Built-in predicates
 * Lists
-* Anonymous variables using `_`
 * Nested compound terms
 * Numbers and strings
 * Negation
@@ -134,6 +139,6 @@ Future versions may add:
 
 ## Project Direction
 
-The project is currently moving from a Go-only internal representation toward a usable Prolog-like interpreter.
+The project has moved from a Go-only internal representation to a usable Prolog-like interpreter with parser support, a solve API, and a visualizer for user-entered programs and queries.
 
-The next major milestone is replacing the fixed visualizer demo with a real solve endpoint that accepts user-provided Prolog source code and a query, parses both, runs the resolver, and returns answers plus execution trace events.
+The next major milestones are expanding the supported term model, improving parser errors, and adding more Prolog language features such as numbers, nested compound terms, lists, and built-in predicates.

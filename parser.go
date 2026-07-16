@@ -3,8 +3,9 @@ package prolog
 import "fmt"
 
 type parser struct {
-	tokens []token
-	pos    int
+	tokens          []token
+	pos             int
+	nextAnonymousID int
 }
 
 // ParseProgram parses Prolog facts and rules.
@@ -206,16 +207,18 @@ func (p *parser) parseTerm() (Term, error) {
 		p.advance()
 
 		if tok.literal == "_" {
-			return nil, p.errorf(
-				tok,
-				"anonymous variable '_' is not supported yet",
-			)
+			return p.freshAnonymousVar(), nil
 		}
 
 		return Var(tok.literal), nil
 	default:
 		return nil, p.errorf(tok, "expected atom or variable")
 	}
+}
+
+func (p *parser) freshAnonymousVar() Var {
+	p.nextAnonymousID++
+	return Var(fmt.Sprintf("$anon_%d", p.nextAnonymousID))
 }
 
 func (p *parser) peek() token {
