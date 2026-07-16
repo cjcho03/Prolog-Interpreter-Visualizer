@@ -5,15 +5,24 @@ import (
 	"net/http"
 )
 
+type SolveRequest struct {
+	Program string `json:"program"`
+	Query   string `json:"query"`
+}
+
 type SolveResponse struct {
 	Events  []TraceEvent        `json:"events"`
 	Answers []map[string]string `json:"answers"`
 }
 
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
 func DemoHandler(engine Engine) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 			return
 		}
 
@@ -24,23 +33,89 @@ func DemoHandler(engine Engine) http.HandlerFunc {
 			},
 		}
 
-		var events []TraceEvent
+		response := solveWithEvents(engine, query...)
 
-		answers := engine.SolveWithTrace(func(event TraceEvent) {
-			events = append(events, event)
-		}, query...)
+		writeJSON(w, http.StatusOK, response)
+	}
+}
 
-		answerMaps := make([]map[string]string, len(answers))
-
-		for i, answer := range answers {
-			answerMaps[i] = snapshotBindings(answer)
+func SolveHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		defer r.Body.Close()
 
-		json.NewEncoder(w).Encode(SolveResponse{
-			Events:  events,
-			Answers: answerMaps,
-		})
+		var request SolveRequest
+
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid JSON request body")
+			return
+		}
+
+		if request.Program == "" {
+			writeError(w, http.StatusBadRequest, "program is required")
+			return
+		}
+
+		if request.Query == "" {
+			writeError(w, http.StatusBadRequest, "query is required")
+			return
+		}
+
+		clauses, err := ParseProgram(request.Program)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "program parse error")
+			return
+		}
+
+		goals, err := ParseQuery(request.Query)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "query parse error")
+			return
+		}
+
+		engine := Engine{
+			Clauses: clauses,
+		}
+
+		response := solveWithEvents(engine, goals...)
+
+		writeJSON(w, http.StatusOK, response)
 	}
+}
+
+func solveWithEvents(engine Engine, goals ...Predicate) SolveResponse {
+	var events []TraceEvent
+
+	answers := engine.SolveWithTrace(func(event TraceEvent) {
+		events = append(events, event)
+	}, goals...)
+
+	answerMaps := make([]map[string]string, len(answers))
+
+	for i, answer := range answers {
+		answerMaps[i] = snapshotBindings(answer)
+	}
+
+	return SolveResponse{
+		Events:  events,
+		Answers: answerMaps,
+	}
+}
+
+func writeJSON(w http.ResponseWriter, status int, value any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+
+	_ = json.NewEncoder(w).Encode(value)
+}
+
+func writeError(w http.ResponseWriter, status int, message string) {
+	writeJSON(w, status, ErrorResponse{
+		Error: message,
+	})
 }

@@ -1,6 +1,17 @@
 import "./styles.css";
-import { fetchDemoTrace } from "./api";
+import { solveProlog } from "./api";
 import type { SolveResponse, TraceEvent, TraceEventType } from "./types";
+
+const demoProgram = `parent(alice, bob).
+parent(alice, carol).
+parent(bob, diana).
+parent(carol, eli).
+
+grandparent(X, Z) :-
+    parent(X, Y),
+    parent(Y, Z).`;
+
+const demoQuery = `?- grandparent(alice, Who).`;
 
 function getElement<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
@@ -12,7 +23,11 @@ function getElement<T extends HTMLElement>(id: string): T {
   return element as T;
 }
 
+const programInput = getElement<HTMLTextAreaElement>("program-input");
+const queryInput = getElement<HTMLTextAreaElement>("query-input");
+
 const runButton = getElement<HTMLButtonElement>("run-demo");
+const resetButton = getElement<HTMLButtonElement>("reset-demo");
 const previousButton = getElement<HTMLButtonElement>("previous-step");
 const nextButton = getElement<HTMLButtonElement>("next-step");
 const playButton = getElement<HTMLButtonElement>("play-trace");
@@ -51,15 +66,32 @@ const state: {
   loading: false,
 };
 
-runButton.addEventListener("click", runDemo);
+programInput.value = demoProgram;
+queryInput.value = demoQuery;
+
+runButton.addEventListener("click", runQuery);
+resetButton.addEventListener("click", resetDemo);
 previousButton.addEventListener("click", previousStep);
 nextButton.addEventListener("click", nextStep);
 playButton.addEventListener("click", togglePlayback);
 
 render();
 
-async function runDemo(): Promise<void> {
+async function runQuery(): Promise<void> {
   stopPlayback();
+
+  const program = programInput.value.trim();
+  const query = queryInput.value.trim();
+
+  if (program.length === 0) {
+    showError("Program is required.");
+    return;
+  }
+
+  if (query.length === 0) {
+    showError("Query is required.");
+    return;
+  }
 
   state.loading = true;
   state.events = [];
@@ -70,7 +102,10 @@ async function runDemo(): Promise<void> {
   render();
 
   try {
-    const data = await fetchDemoTrace();
+    const data = await solveProlog({
+      program,
+      query,
+    });
 
     state.events = data.events;
     state.answers = data.answers;
@@ -84,6 +119,20 @@ async function runDemo(): Promise<void> {
     state.loading = false;
     render();
   }
+}
+
+function resetDemo(): void {
+  stopPlayback();
+
+  programInput.value = demoProgram;
+  queryInput.value = demoQuery;
+
+  state.events = [];
+  state.answers = [];
+  state.currentIndex = -1;
+
+  clearError();
+  render();
 }
 
 function previousStep(): void {
@@ -154,7 +203,8 @@ function render(): void {
   const atLastStep = state.currentIndex >= state.events.length - 1;
 
   runButton.disabled = state.loading;
-  runButton.textContent = state.loading ? "Loading..." : "Run demo";
+  resetButton.disabled = state.loading;
+  runButton.textContent = state.loading ? "Running..." : "Run query";
 
   previousButton.disabled = !hasTrace || atFirstStep;
   nextButton.disabled = !hasTrace || atLastStep;
@@ -168,7 +218,7 @@ function render(): void {
     stepCounter.textContent = "No trace loaded.";
     eventKind.textContent = "Waiting";
     eventDescription.textContent =
-      "Run the demo to receive events from the Go interpreter.";
+      "Run a query to receive events from the Go interpreter.";
     currentGoal.textContent = "—";
     currentClause.textContent = "—";
     renderExpandedGoals();

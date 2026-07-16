@@ -1,4 +1,4 @@
-import type { SolveResponse, TraceEvent, TraceEventType } from "./types"
+import type { SolveRequest, SolveResponse, TraceEvent, TraceEventType } from "./types"
 
 const eventTypes = new Set<TraceEventType>([
   "goal",
@@ -18,23 +18,37 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string")
 }
 
+function isStringRecord(value: unknown): value is Record<string, string> {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  return Object.values(value).every((item) => typeof item === "string")
+}
+
 function isTraceEvent(value: unknown): value is TraceEvent {
   if (!isRecord(value)) {
     return false
   }
 
+  const hasValidGoal =
+    value.goal === undefined || typeof value.goal === "string"
   const hasValidClause =
     value.clause === undefined || typeof value.clause === "string"
   const hasValidExpandedGoals =
     value.expandedGoals === undefined || isStringArray(value.expandedGoals)
+  const hasValidBindngs =
+    value.bindings === undefined || isStringRecord(value.bindings)
 
   return (
     typeof value.type === "string" &&
     eventTypes.has(value.type as TraceEventType) &&
     typeof value.depth === "number" &&
     typeof value.description === "string" &&
+    hasValidGoal &&
     hasValidClause &&
-    hasValidExpandedGoals
+    hasValidExpandedGoals &&
+    hasValidBindngs
   )
 }
 
@@ -48,15 +62,7 @@ function toStringRecord(value: Record<string, unknown>): Record<string, string> 
   return result
 }
 
-export async function fetchDemoTrace(): Promise<SolveResponse> {
-  const response = await fetch("/api/demo")
-
-  if (!response.ok) {
-    throw new Error(`The Go server returned ${response.status}.`)
-  }
-
-  const body: unknown = await response.json()
-
+function parseSolveResponse(body: unknown): SolveResponse {
   if (!isRecord(body) || !Array.isArray(body.events)) {
     throw new Error("The API response did not include a trace.")
   }
@@ -71,6 +77,49 @@ export async function fetchDemoTrace(): Promise<SolveResponse> {
 
   return {
     events: body.events,
-    answers
+    answers,
   }
+}
+
+async function readErrorMessage(response: Response): Promise<string> {
+  try {
+    const body: unknown = await response.json()
+
+    if (isRecord(body) && typeof body.error === "string") {
+      return body.error
+    }
+  } catch {
+    // Fall through to generic message
+  }
+  return `The Go server returned ${response.status}.`
+}
+
+export async function fetchDemoTrace(): Promise<SolveResponse> {
+  const response = await fetch("/api/demo")
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response))
+  }
+
+  const body: unknown = await response.json()
+
+  return parseSolveResponse(body)
+}
+
+export async function solveProlog(request: SolveRequest): Promise<SolveResponse> {
+  const response = await fetch("/api/solve", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(request)
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response))
+  }
+
+  const body: unknown = await response.json()
+
+  return parseSolveResponse(body)
 }

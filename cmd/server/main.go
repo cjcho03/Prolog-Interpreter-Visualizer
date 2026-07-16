@@ -71,6 +71,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/demo", prolog.DemoHandler(engine))
+	mux.HandleFunc("/api/solve", prolog.SolveHandler())
 
 	log.Println("Go API running at http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
