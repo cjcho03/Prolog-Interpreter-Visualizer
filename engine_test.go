@@ -253,3 +253,65 @@ func TestSolveFactWithNumber(t *testing.T) {
 		t.Fatalf("expected Age = 30, got %s", number)
 	}
 }
+
+func TestSolveFactWithCompoundTerm(t *testing.T) {
+	engine := Engine{
+		Clauses: []Clause{
+			Fact(p(
+				"likes",
+				Atom("alice"),
+				Compound{Name: "food", Args: []Term{Atom("pizza")}},
+			)),
+			Fact(p(
+				"likes",
+				Atom("bob"),
+				Compound{Name: "food", Args: []Term{Atom("sushi")}},
+			)),
+		},
+	}
+
+	answers := engine.Solve(
+		p("likes", Atom("alice"), Var("What")),
+	)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected 1 answer, got %d", len(answers))
+	}
+
+	got := resolveTerm(Var("What"), answers[0])
+
+	if got.String() != "food(pizza)" {
+		t.Fatalf("expected What = food(pizza), got %s", got.String())
+	}
+}
+
+func TestSolveMatchesInsideCompoundTerm(t *testing.T) {
+	engine := Engine{
+		Clauses: []Clause{
+			Fact(p(
+				"likes",
+				Atom("alice"),
+				Compound{Name: "food", Args: []Term{Atom("pizza")}},
+			)),
+			Fact(p(
+				"likes",
+				Atom("bob"),
+				Compound{Name: "food", Args: []Term{Atom("sushi")}},
+			)),
+		},
+	}
+
+	answers := engine.Solve(
+		p(
+			"likes",
+			Var("Person"),
+			Compound{Name: "food", Args: []Term{Atom("pizza")}},
+		),
+	)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected 1 answer, got %d", len(answers))
+	}
+
+	requireAtomBinding(t, answers[0], Var("Person"), Atom("alice"))
+}

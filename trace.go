@@ -32,26 +32,32 @@ func emit(sink TraceSink, event TraceEvent) {
 	}
 }
 
-// queryVariables returns the user-facing variables that appeared in the
-// original query. Internal standardized-apart variables are intentionally
-// excluded from user-facing trace bindings and final answers.
 func queryVariables(goals []Predicate) []Var {
 	seen := make(map[Var]bool)
 	var variables []Var
 
+	var collect func(term Term)
+
+	collect = func(term Term) {
+		switch value := term.(type) {
+		case Var:
+			if isInternalVar(value) || seen[value] {
+				return
+			}
+
+			seen[value] = true
+			variables = append(variables, value)
+
+		case Compound:
+			for _, arg := range value.Args {
+				collect(arg)
+			}
+		}
+	}
+
 	for _, goal := range goals {
 		for _, arg := range goal.Args {
-			variable, ok := arg.(Var)
-			if !ok {
-				continue
-			}
-
-			if isInternalVar(variable) {
-				continue
-			}
-
-			seen[variable] = true
-			variables = append(variables, variable)
+			collect(arg)
 		}
 	}
 
@@ -62,16 +68,12 @@ func snapshotBindings(sub Substitution) map[string]string {
 	result := make(map[string]string)
 
 	for variable, value := range sub {
-		result[string(variable)] = dereference(value, sub).String()
+		result[string(variable)] = resolveTerm(value, sub).String()
 	}
 
 	return result
 }
 
-// snapshotQueryBindings returns only bindings for variables the user actually
-// asked about in the query.
-// If a query variable is currently bound only to an unresolved internal rule
-// variable, it is omitted for that trace step.
 func snapshotQueryBindings(sub Substitution, queryVars []Var) map[string]string {
 	result := make(map[string]string)
 
@@ -81,7 +83,7 @@ func snapshotQueryBindings(sub Substitution, queryVars []Var) map[string]string 
 			continue
 		}
 
-		resolved := dereference(value, sub)
+		resolved := resolveTerm(value, sub)
 
 		if resolvedVar, ok := resolved.(Var); ok && isInternalVar(resolvedVar) {
 			continue
@@ -97,7 +99,7 @@ func answerBindings(sub Substitution, queryVars []Var) map[string]string {
 	result := make(map[string]string)
 
 	for _, variable := range queryVars {
-		resolved := dereference(variable, sub)
+		resolved := resolveTerm(variable, sub)
 
 		if resolvedVar, ok := resolved.(Var); ok && isInternalVar(resolvedVar) {
 			continue

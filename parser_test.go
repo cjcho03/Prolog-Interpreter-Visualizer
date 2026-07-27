@@ -276,11 +276,99 @@ func TestParseProgramThenSolveWithAnonymousVariableAndNamedVariable(t *testing.T
 	requireParserAtomBinding(t, answers[1], Var("Who"), Atom("eli"))
 }
 
-func TestParseRejectsNestedCompoundTermsForNow(t *testing.T) {
-	_, err := ParseQuery("?- likes(alice, food(pizza)).")
-	if err == nil {
-		t.Fatal("expected nested compound term to be rejected for now")
+func TestParseCompoundTerm(t *testing.T) {
+	goals, err := ParseQuery("?- likes(alice, food(pizza)).")
+	if err != nil {
+		t.Fatal(err)
 	}
+
+	if len(goals) != 1 {
+		t.Fatalf("expected 1 query goal, got %d", len(goals))
+	}
+
+	got := goals[0].String()
+	want := "likes(alice, food(pizza))"
+
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestParseNestedCompoundTerm(t *testing.T) {
+	goals, err := ParseQuery("?- likes(alice, meal(food(pizza), drink(water))).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := goals[0].String()
+	want := "likes(alice, meal(food(pizza), drink(water)))"
+
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestParseProgramThenSolveWithCompoundTerm(t *testing.T) {
+	program := `
+		likes(alice, food(pizza)).
+		likes(bob, food(sushi)).
+	`
+
+	clauses, err := ParseProgram(program)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	query, err := ParseQuery("?- likes(alice, What).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	engine := Engine{Clauses: clauses}
+
+	answers := engine.Solve(query...)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected 1 answer, got %d", len(answers))
+	}
+
+	got := dereference(Var("What"), answers[0])
+
+	compound, ok := got.(Compound)
+	if !ok {
+		t.Fatalf("expected What to resolve to a compound term, got %v", got)
+	}
+
+	if compound.String() != "food(pizza)" {
+		t.Fatalf("expected What = food(pizza), got %s", compound.String())
+	}
+}
+
+func TestParseProgramThenSolveWithVariableInsideCompoundTerm(t *testing.T) {
+	program := `
+		likes(alice, food(pizza)).
+		likes(bob, food(sushi)).
+	`
+
+	clauses, err := ParseProgram(program)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	query, err := ParseQuery("?- likes(Person, food(pizza)).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	engine := Engine{Clauses: clauses}
+
+	answers := engine.Solve(query...)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected 1 answer, got %d", len(answers))
+	}
+
+	requireParserAtomBinding(t, answers[0], Var("Person"), Atom("alice"))
 }
 
 func requireParserAtomBinding(

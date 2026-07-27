@@ -30,19 +30,22 @@ func (v Var) String() string {
 	return text
 }
 
+type Compound struct {
+	Name string
+	Args []Term
+}
+
+func (c Compound) String() string {
+	return formatTermWithArgs(c.Name, c.Args)
+}
+
 type Predicate struct {
 	Name string
 	Args []Term
 }
 
 func (p Predicate) String() string {
-	args := make([]string, len(p.Args))
-
-	for i, arg := range p.Args {
-		args[i] = arg.String()
-	}
-
-	return p.Name + "(" + strings.Join(args, ", ") + ")"
+	return formatTermWithArgs(p.Name, p.Args)
 }
 
 type Substitution map[Var]Term
@@ -55,6 +58,16 @@ func copySubstitution(s Substitution) Substitution {
 	}
 
 	return result
+}
+
+func formatTermWithArgs(name string, args []Term) string {
+	formattedArgs := make([]string, len(args))
+
+	for i, arg := range args {
+		formattedArgs[i] = arg.String()
+	}
+
+	return name + "(" + strings.Join(formattedArgs, ", ") + ")"
 }
 
 func isAnonymousVar(variable Var) bool {

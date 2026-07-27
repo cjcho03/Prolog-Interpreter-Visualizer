@@ -50,19 +50,34 @@ func (c Clause) String() string {
 func standardizeApart(clause Clause, id int) Clause {
 	renamed := make(map[Var]Var)
 
-	renameTerm := func(term Term) Term {
-		variable, ok := term.(Var)
-		if !ok {
+	var renameTerm func(Term) Term
+
+	renameTerm = func(term Term) Term {
+		switch value := term.(type) {
+		case Var:
+			fresh, found := renamed[value]
+			if !found {
+				fresh = Var(fmt.Sprintf("$%d_%s", id, value))
+				renamed[value] = fresh
+			}
+
+			return fresh
+
+		case Compound:
+			args := make([]Term, len(value.Args))
+
+			for i, arg := range value.Args {
+				args[i] = renameTerm(arg)
+			}
+
+			return Compound{
+				Name: value.Name,
+				Args: args,
+			}
+
+		default:
 			return term
 		}
-
-		fresh, found := renamed[variable]
-		if !found {
-			fresh = Var(fmt.Sprintf("$%d_%s", id, variable))
-			renamed[variable] = fresh
-		}
-
-		return fresh
 	}
 
 	renamePredicate := func(predicate Predicate) Predicate {

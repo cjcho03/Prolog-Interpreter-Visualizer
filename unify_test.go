@@ -170,3 +170,101 @@ func TestUnifyVariableWithNumber(t *testing.T) {
 		t.Fatalf("expected Age = 30, got %v", sub[Var("Age")])
 	}
 }
+
+func TestUnifyMatchingCompoundTerms(t *testing.T) {
+	sub := Substitution{}
+
+	left := Compound{
+		Name: "food",
+		Args: []Term{Atom("pizza")},
+	}
+
+	right := Compound{
+		Name: "food",
+		Args: []Term{Atom("pizza")},
+	}
+
+	if !unify(left, right, sub) {
+		t.Fatal("expected matching compound terms to unify")
+	}
+}
+
+func TestUnifyDifferentCompoundNamesFails(t *testing.T) {
+	sub := Substitution{}
+
+	left := Compound{
+		Name: "food",
+		Args: []Term{Atom("pizza")},
+	}
+
+	right := Compound{
+		Name: "drink",
+		Args: []Term{Atom("pizza")},
+	}
+
+	if unify(left, right, sub) {
+		t.Fatal("expected compound terms with different names not to unify")
+	}
+}
+
+func TestUnifyCompoundTermBindsNestedVariable(t *testing.T) {
+	sub := Substitution{}
+
+	left := Compound{
+		Name: "food",
+		Args: []Term{Var("X")},
+	}
+
+	right := Compound{
+		Name: "food",
+		Args: []Term{Atom("pizza")},
+	}
+
+	if !unify(left, right, sub) {
+		t.Fatal("expected compound terms to unify")
+	}
+
+	if sub[Var("X")] != Atom("pizza") {
+		t.Fatalf("expected X = pizza, got %v", sub[Var("X")])
+	}
+}
+
+func TestUnifyNestedCompoundTerms(t *testing.T) {
+	sub := Substitution{}
+
+	left := Compound{
+		Name: "meal",
+		Args: []Term{
+			Compound{
+				Name: "food",
+				Args: []Term{Var("Food")},
+			},
+			Compound{
+				Name: "drink",
+				Args: []Term{Atom("water")},
+			},
+		},
+	}
+
+	right := Compound{
+		Name: "meal",
+		Args: []Term{
+			Compound{
+				Name: "food",
+				Args: []Term{Atom("pizza")},
+			},
+			Compound{
+				Name: "drink",
+				Args: []Term{Atom("water")},
+			},
+		},
+	}
+
+	if !unify(left, right, sub) {
+		t.Fatal("expected nested compound terms to unify")
+	}
+
+	if sub[Var("Food")] != Atom("pizza") {
+		t.Fatalf("expected Food = pizza, got %v", sub[Var("Food")])
+	}
+}

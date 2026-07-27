@@ -195,17 +195,32 @@ func (p *parser) parseTerm() (Term, error) {
 	case tokenIdent:
 		p.advance()
 
-		if p.peek().typ == tokenLParen {
-			return nil, p.errorf(
-				p.peek(),
-				"nested compound terms are not supported yet",
-			)
+		if !p.match(tokenLParen) {
+			return Atom(tok.literal), nil
 		}
 
-		return Atom(tok.literal), nil
+		if p.match(tokenRParen) {
+			return Compound{Name: tok.literal}, nil
+		}
+
+		args, err := p.parseTermList()
+		if err != nil {
+			return nil, err
+		}
+
+		if err := p.expect(tokenRParen); err != nil {
+			return nil, err
+		}
+
+		return Compound{
+			Name: tok.literal,
+			Args: args,
+		}, nil
+
 	case tokenNumber:
 		p.advance()
 		return Number(tok.literal), nil
+
 	case tokenVar:
 		p.advance()
 
@@ -214,8 +229,9 @@ func (p *parser) parseTerm() (Term, error) {
 		}
 
 		return Var(tok.literal), nil
+
 	default:
-		return nil, p.errorf(tok, "expected atom or variable")
+		return nil, p.errorf(tok, "expected atom, number, variable, or compound term")
 	}
 }
 
