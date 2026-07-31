@@ -230,9 +230,68 @@ func (p *parser) parseTerm() (Term, error) {
 
 		return Var(tok.literal), nil
 
+	case tokenLBracket:
+		return p.parseListTerm()
+
 	default:
 		return nil, p.errorf(tok, "expected atom, number, variable, or compound term")
 	}
+}
+
+func (p *parser) parseListTerm() (Term, error) {
+	if err := p.expect(tokenLBracket); err != nil {
+		return nil, err
+	}
+
+	if p.match(tokenRBracket) {
+		return Atom("[]"), nil
+	}
+
+	first, err := p.parseTerm()
+	if err != nil {
+		return nil, err
+	}
+
+	elements := []Term{first}
+	tail := Term(Atom("[]"))
+
+	for p.match(tokenComma) {
+		next, err := p.parseTerm()
+		if err != nil {
+			return nil, err
+		}
+
+		elements = append(elements, next)
+	}
+
+	if p.match(tokenBar) {
+		tail, err = p.parseTerm()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err := p.expect(tokenRBracket); err != nil {
+		return nil, err
+	}
+
+	return buildList(elements, tail), nil
+}
+
+func buildList(elements []Term, tail Term) Term {
+	result := tail
+
+	for i := len(elements) - 1; i >= 0; i-- {
+		result = Compound{
+			Name: ".",
+			Args: []Term{
+				elements[i],
+				result,
+			},
+		}
+	}
+
+	return result
 }
 
 func (p *parser) freshAnonymousVar() Var {
@@ -307,10 +366,16 @@ func tokenName(typ tokenType) string {
 		return "("
 	case tokenRParen:
 		return ")"
+	case tokenLBracket:
+		return "["
+	case tokenRBracket:
+		return "]"
 	case tokenComma:
 		return ","
 	case tokenDot:
 		return "."
+	case tokenBar:
+		return "|"
 	case tokenColonDash:
 		return ":-"
 	case tokenQuery:

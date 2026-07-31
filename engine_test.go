@@ -315,3 +315,65 @@ func TestSolveMatchesInsideCompoundTerm(t *testing.T) {
 
 	requireAtomBinding(t, answers[0], Var("Person"), Atom("alice"))
 }
+
+func TestSolveFactWithList(t *testing.T) {
+	program := `
+		likes(alice, [pizza, sushi]).
+	`
+
+	clauses, err := ParseProgram(program)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	query, err := ParseQuery("?- likes(alice, Foods).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	engine := Engine{Clauses: clauses}
+
+	answers := engine.Solve(query...)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected 1 answer, got %d", len(answers))
+	}
+
+	got := resolveTerm(Var("Foods"), answers[0])
+
+	if got.String() != "[pizza, sushi]" {
+		t.Fatalf("expected Foods = [pizza, sushi], got %s", got.String())
+	}
+}
+
+func TestSolveListHeadAndTail(t *testing.T) {
+	program := `
+		items([pizza, sushi, ramen]).
+	`
+
+	clauses, err := ParseProgram(program)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	query, err := ParseQuery("?- items([Head | Tail]).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	engine := Engine{Clauses: clauses}
+
+	answers := engine.Solve(query...)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected 1 answer, got %d", len(answers))
+	}
+
+	requireAtomBinding(t, answers[0], Var("Head"), Atom("pizza"))
+
+	tail := resolveTerm(Var("Tail"), answers[0])
+
+	if tail.String() != "[sushi, ramen]" {
+		t.Fatalf("expected Tail = [sushi, ramen], got %s", tail.String())
+	}
+}

@@ -36,6 +36,12 @@ type Compound struct {
 }
 
 func (c Compound) String() string {
+	if c.Name == "." && len(c.Args) == 2 {
+		elements, tail, ok := listParts(c)
+		if ok {
+			return formatList(elements, tail)
+		}
+	}
 	return formatTermWithArgs(c.Name, c.Args)
 }
 
@@ -68,6 +74,44 @@ func formatTermWithArgs(name string, args []Term) string {
 	}
 
 	return name + "(" + strings.Join(formattedArgs, ", ") + ")"
+}
+
+func listParts(term Term) ([]Term, Term, bool) {
+	var elements []Term
+	current := term
+
+	for {
+		if isEmptyList(current) {
+			return elements, Atom("[]"), true
+		}
+
+		compound, ok := current.(Compound)
+		if !ok || compound.Name != "." || len(compound.Args) != 2 {
+			return elements, current, true
+		}
+
+		elements = append(elements, compound.Args[0])
+		current = compound.Args[1]
+	}
+}
+
+func formatList(elements []Term, tail Term) string {
+	formattedElements := make([]string, len(elements))
+
+	for i, element := range elements {
+		formattedElements[i] = element.String()
+	}
+
+	if !isEmptyList(tail) {
+		return "[" + strings.Join(formattedElements, ", ") + " | " + tail.String() + "]"
+	}
+
+	return "[" + strings.Join(formattedElements, ", ") + "]"
+}
+
+func isEmptyList(term Term) bool {
+	atom, ok := term.(Atom)
+	return ok && atom == Atom("[]")
 }
 
 func isAnonymousVar(variable Var) bool {

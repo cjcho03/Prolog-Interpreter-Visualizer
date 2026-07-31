@@ -14,8 +14,11 @@ const (
 	tokenNumber
 	tokenLParen
 	tokenRParen
+	tokenLBracket
+	tokenRBracket
 	tokenComma
 	tokenDot
+	tokenBar
 	tokenColonDash
 	tokenQuery
 )
@@ -43,8 +46,14 @@ func (t token) String() string {
 		return ")"
 	case tokenComma:
 		return ","
+	case tokenLBracket:
+		return "["
+	case tokenRBracket:
+		return "]"
 	case tokenDot:
 		return "."
+	case tokenBar:
+		return "|"
 	case tokenColonDash:
 		return ":-"
 	case tokenQuery:
@@ -102,6 +111,22 @@ func lex(src string) ([]token, error) {
 				line:    startLine,
 				column:  startColumn,
 			})
+		case ch == '[':
+			l.advance()
+			tokens = append(tokens, token{
+				typ:     tokenLBracket,
+				literal: "[",
+				line:    startLine,
+				column:  startColumn,
+			})
+		case ch == ']':
+			l.advance()
+			tokens = append(tokens, token{
+				typ:     tokenRBracket,
+				literal: "]",
+				line:    startLine,
+				column:  startColumn,
+			})
 		case ch == ',':
 			l.advance()
 			tokens = append(tokens, token{
@@ -115,6 +140,14 @@ func lex(src string) ([]token, error) {
 			tokens = append(tokens, token{
 				typ:     tokenDot,
 				literal: ".",
+				line:    startLine,
+				column:  startColumn,
+			})
+		case ch == '|':
+			l.advance()
+			tokens = append(tokens, token{
+				typ:     tokenBar,
+				literal: "|",
 				line:    startLine,
 				column:  startColumn,
 			})

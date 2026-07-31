@@ -454,6 +454,62 @@ func TestParseProgramThenSolveWithNumber(t *testing.T) {
 	requireParserNumberBinding(t, answers[0], Var("Age"), Number("30"))
 }
 
+func TestParseEmptyList(t *testing.T) {
+	goals, err := ParseQuery("?- items([]).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := goals[0].String()
+	want := "items([])"
+
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestParseList(t *testing.T) {
+	goals, err := ParseQuery("?- items([pizza, sushi, ramen]).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := goals[0].String()
+	want := "items([pizza, sushi, ramen])"
+
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestParseListWithTail(t *testing.T) {
+	goals, err := ParseQuery("?- items([Head | Tail]).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := goals[0].String()
+	want := "items([Head | Tail])"
+
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestParseListWithElementsAndTail(t *testing.T) {
+	goals, err := ParseQuery("?- items([pizza, sushi | Rest]).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := goals[0].String()
+	want := "items([pizza, sushi | Rest])"
+
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
 func requireParserNumberBinding(
 	t *testing.T,
 	answer Substitution,
