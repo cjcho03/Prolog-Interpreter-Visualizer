@@ -147,3 +147,41 @@ func TestSolveTraceEmitsBacktrackingForDeadEndRuleBranch(t *testing.T) {
 		t.Fatal("expected a dead-end rule branch to emit a backtrack event")
 	}
 }
+
+func TestSolveTraceEmitsBuiltinEvent(t *testing.T) {
+	engine := Engine{}
+
+	events, answers := collectTrace(engine, p("true"))
+
+	if len(answers) != 1 {
+		t.Fatalf("expected true/0 to produce 1 answer, got %d", len(answers))
+	}
+
+	event, found := findFirstEvent(events, EventBuiltin)
+	if !found {
+		t.Fatal("expected trace to include a builtin event")
+	}
+
+	if event.Goal != "true()" {
+		t.Fatalf("expected builtin goal true(), got %q", event.Goal)
+	}
+}
+
+func TestSolveTraceShowsBuiltinFailure(t *testing.T) {
+	engine := Engine{}
+
+	events, answers := collectTrace(engine, p("fail"))
+
+	if len(answers) != 0 {
+		t.Fatalf("expected fail/0 to produce no answers, got %d", len(answers))
+	}
+
+	failed, found := findFirstEvent(events, EventFailed)
+	if !found {
+		t.Fatal("expected trace to include a failed event")
+	}
+
+	if !strings.Contains(failed.Description, "Built-in predicate failed") {
+		t.Fatalf("expected built-in failure description, got %q", failed.Description)
+	}
+}

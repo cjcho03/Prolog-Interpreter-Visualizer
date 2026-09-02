@@ -6,6 +6,7 @@ type TraceEventType string
 
 const (
 	EventGoal         TraceEventType = "goal"
+	EventBuiltin      TraceEventType = "builtin"
 	EventTryClause    TraceEventType = "try_clause"
 	EventUnified      TraceEventType = "unified"
 	EventRuleExpanded TraceEventType = "rule_expanded"

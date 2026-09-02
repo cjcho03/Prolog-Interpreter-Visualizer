@@ -377,3 +377,102 @@ func TestSolveListHeadAndTail(t *testing.T) {
 		t.Fatalf("expected Tail = [sushi, ramen], got %s", tail.String())
 	}
 }
+
+func TestSolveBuiltinTrue(t *testing.T) {
+	query, err := ParseQuery("?- true.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	engine := Engine{}
+	answers := engine.Solve(query...)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected true/0 to produce 1 answer, got %d", len(answers))
+	}
+}
+
+func TestSolveBuiltinFail(t *testing.T) {
+	query, err := ParseQuery("?- fail.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	engine := Engine{}
+	answers := engine.Solve(query...)
+
+	if len(answers) != 0 {
+		t.Fatalf("expected fail/0 to produce no answers, got %d", len(answers))
+	}
+}
+
+func TestSolveBuiltinTrueInRuleBody(t *testing.T) {
+	program := `
+		item(pizza).
+		item(sushi).
+
+		available(X) :- item(X), true.
+	`
+
+	clauses, err := ParseProgram(program)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	query, err := ParseQuery("?- available(Item).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	engine := Engine{Clauses: clauses}
+	answers := engine.Solve(query...)
+
+	if len(answers) != 2 {
+		t.Fatalf("expected 2 answers, got %d", len(answers))
+	}
+
+	requireAtomBinding(t, answers[0], Var("Item"), Atom("pizza"))
+	requireAtomBinding(t, answers[1], Var("Item"), Atom("sushi"))
+}
+
+func TestSolveBuiltinFailBacktracksToAnotherClause(t *testing.T) {
+	program := `
+		choice(first) :- fail.
+		choice(second).
+	`
+
+	clauses, err := ParseProgram(program)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	query, err := ParseQuery("?- choice(Value).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	engine := Engine{Clauses: clauses}
+	answers := engine.Solve(query...)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected 1 answer after fail/0 backtracking, got %d", len(answers))
+	}
+
+	requireAtomBinding(t, answers[0], Var("Value"), Atom("second"))
+}
+
+func TestBuiltinLookupUsesPredicateArity(t *testing.T) {
+	engine := Engine{
+		Clauses: []Clause{
+			Fact(p("true", Atom("value"))),
+		},
+	}
+
+	answers := engine.Solve(p("true", Var("X")))
+
+	if len(answers) != 1 {
+		t.Fatalf("expected user-defined true/1 to be treated as a normal predicate, got %d answers", len(answers))
+	}
+
+	requireAtomBinding(t, answers[0], Var("X"), Atom("value"))
+}

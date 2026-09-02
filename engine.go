@@ -1,5 +1,39 @@
 package prolog
 
+// builtinPredicate executes a deterministic built-in goal.
+// It may add bindings to sub and returns whether the goal succeeds.
+type builtinPredicate func(args []Term, sub Substitution) bool
+
+// predicateIndicator identifies a predicate by the standard name/arity pair.
+type predicateIndicator struct {
+	Name  string
+	Arity int
+}
+
+// builtinPredicates is checked before user-defined clauses.
+// Add future built-ins here, such as =/2 or is/2.
+var builtinPredicates = map[predicateIndicator]builtinPredicate{
+	{Name: "true", Arity: 0}: builtinTrue,
+	{Name: "fail", Arity: 0}: builtinFail,
+}
+
+func builtinTrue(_ []Term, _ Substitution) bool {
+	return true
+}
+
+func builtinFail(_ []Term, _ Substitution) bool {
+	return false
+}
+
+func lookupBuiltin(goal Predicate) (builtinPredicate, bool) {
+	builtin, found := builtinPredicates[predicateIndicator{
+		Name:  goal.Name,
+		Arity: len(goal.Args),
+	}]
+
+	return builtin, found
+}
+
 type Engine struct {
 	Clauses []Clause
 }
@@ -53,6 +87,40 @@ func (e Engine) SolveWithTrace(
 			Bindings:    snapshotQueryBindings(sub, userQueryVars),
 			Description: "Trying to satisfy the next goal.",
 		})
+
+		if builtin, found := lookupBuiltin(currentGoal); found {
+			emit(sink, TraceEvent{
+				Type:        EventBuiltin,
+				Depth:       depth,
+				Goal:        currentGoal.String(),
+				Bindings:    snapshotQueryBindings(sub, userQueryVars),
+				Description: "Executing built-in predicate.",
+			})
+
+			nextSub := copySubstitution(sub)
+
+			if !builtin(currentGoal.Args, nextSub) {
+				emit(sink, TraceEvent{
+					Type:        EventFailed,
+					Depth:       depth,
+					Goal:        currentGoal.String(),
+					Bindings:    snapshotQueryBindings(nextSub, userQueryVars),
+					Description: "Built-in predicate failed.",
+				})
+
+				emit(sink, TraceEvent{
+					Type:        EventBacktrack,
+					Depth:       depth,
+					Goal:        currentGoal.String(),
+					Bindings:    snapshotQueryBindings(sub, userQueryVars),
+					Description: "Built-in predicate produced no solution. Returning to the previous decision.",
+				})
+
+				return false
+			}
+
+			return search(remainingAfterGoal, nextSub, depth+1)
+		}
 
 		foundMatch := false
 		foundSolution := false
