@@ -51,6 +51,10 @@ type Predicate struct {
 }
 
 func (p Predicate) String() string {
+	if p.Name == "=" && len(p.Args) == 2 {
+		return p.Args[0].String() + " = " + p.Args[1].String()
+	}
+
 	return formatTermWithArgs(p.Name, p.Args)
 }
 

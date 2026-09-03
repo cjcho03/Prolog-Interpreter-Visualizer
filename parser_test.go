@@ -118,6 +118,62 @@ func TestParseMultipleGoalQuery(t *testing.T) {
 	}
 }
 
+func TestParseUnificationQuery(t *testing.T) {
+	goals, err := ParseQuery("?- X = alice.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(goals) != 1 {
+		t.Fatalf("expected 1 query goal, got %d", len(goals))
+	}
+
+	if goals[0].Name != "=" || len(goals[0].Args) != 2 {
+		t.Fatalf("expected =/2, got %s/%d", goals[0].Name, len(goals[0].Args))
+	}
+
+	if got := goals[0].String(); got != "X = alice" {
+		t.Fatalf("expected %q, got %q", "X = alice", got)
+	}
+}
+
+func TestParseUnificationWithCompoundTerms(t *testing.T) {
+	goals, err := ParseQuery("?- food(X) = food(pizza).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := goals[0].String(); got != "food(X) = food(pizza)" {
+		t.Fatalf("expected %q, got %q", "food(X) = food(pizza)", got)
+	}
+}
+
+func TestParseUnificationWithLists(t *testing.T) {
+	goals, err := ParseQuery("?- [X, bob] = [alice, Y].")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := goals[0].String(); got != "[X, bob] = [alice, Y]" {
+		t.Fatalf("expected %q, got %q", "[X, bob] = [alice, Y]", got)
+	}
+}
+
+func TestParseUnificationInRuleBody(t *testing.T) {
+	clauses, err := ParseProgram("same(X, Y) :- X = Y.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(clauses) != 1 {
+		t.Fatalf("expected 1 clause, got %d", len(clauses))
+	}
+
+	if got := clauses[0].String(); got != "same(X, Y) :- X = Y" {
+		t.Fatalf("expected %q, got %q", "same(X, Y) :- X = Y", got)
+	}
+}
+
 func TestParseProgramThenSolve(t *testing.T) {
 	program := `
 		parent(alice, bob).

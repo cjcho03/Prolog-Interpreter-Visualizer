@@ -15,6 +15,7 @@ type predicateIndicator struct {
 var builtinPredicates = map[predicateIndicator]builtinPredicate{
 	{Name: "true", Arity: 0}: builtinTrue,
 	{Name: "fail", Arity: 0}: builtinFail,
+	{Name: "=", Arity: 2}:    builtinUnify,
 }
 
 func builtinTrue(_ []Term, _ Substitution) bool {
@@ -23,6 +24,10 @@ func builtinTrue(_ []Term, _ Substitution) bool {
 
 func builtinFail(_ []Term, _ Substitution) bool {
 	return false
+}
+
+func builtinUnify(args []Term, sub Substitution) bool {
+	return unify(args[0], args[1], sub)
 }
 
 func lookupBuiltin(goal Predicate) (builtinPredicate, bool) {

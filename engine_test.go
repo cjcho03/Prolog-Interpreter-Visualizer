@@ -476,3 +476,107 @@ func TestBuiltinLookupUsesPredicateArity(t *testing.T) {
 
 	requireAtomBinding(t, answers[0], Var("X"), Atom("value"))
 }
+
+func TestSolveBuiltinUnifyBindsVariable(t *testing.T) {
+	query, err := ParseQuery("?- X = alice.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	answers := (Engine{}).Solve(query...)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected 1 answer, got %d", len(answers))
+	}
+
+	requireAtomBinding(t, answers[0], Var("X"), Atom("alice"))
+}
+
+func TestSolveBuiltinUnifyFailsForDifferentAtoms(t *testing.T) {
+	query, err := ParseQuery("?- alice = bob.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	answers := (Engine{}).Solve(query...)
+
+	if len(answers) != 0 {
+		t.Fatalf("expected no answers, got %d", len(answers))
+	}
+}
+
+func TestSolveBuiltinUnifyVariableChain(t *testing.T) {
+	query, err := ParseQuery("?- X = Y, Y = alice.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	answers := (Engine{}).Solve(query...)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected 1 answer, got %d", len(answers))
+	}
+
+	requireAtomBinding(t, answers[0], Var("X"), Atom("alice"))
+	requireAtomBinding(t, answers[0], Var("Y"), Atom("alice"))
+}
+
+func TestSolveBuiltinUnifyCompoundTerms(t *testing.T) {
+	query, err := ParseQuery("?- food(X) = food(pizza).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	answers := (Engine{}).Solve(query...)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected 1 answer, got %d", len(answers))
+	}
+
+	requireAtomBinding(t, answers[0], Var("X"), Atom("pizza"))
+}
+
+func TestSolveBuiltinUnifyLists(t *testing.T) {
+	query, err := ParseQuery("?- [X, bob] = [alice, Y].")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	answers := (Engine{}).Solve(query...)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected 1 answer, got %d", len(answers))
+	}
+
+	requireAtomBinding(t, answers[0], Var("X"), Atom("alice"))
+	requireAtomBinding(t, answers[0], Var("Y"), Atom("bob"))
+}
+
+func TestSolveBuiltinUnifyInRuleBody(t *testing.T) {
+	clauses, err := ParseProgram("same(X, Y) :- X = Y.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	query, err := ParseQuery("?- same(alice, alice).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	answers := (Engine{Clauses: clauses}).Solve(query...)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected matching terms to succeed, got %d answers", len(answers))
+	}
+
+	query, err = ParseQuery("?- same(alice, bob).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	answers = (Engine{Clauses: clauses}).Solve(query...)
+
+	if len(answers) != 0 {
+		t.Fatalf("expected different terms to fail, got %d answers", len(answers))
+	}
+}

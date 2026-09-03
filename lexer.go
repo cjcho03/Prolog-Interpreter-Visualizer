@@ -19,6 +19,7 @@ const (
 	tokenComma
 	tokenDot
 	tokenBar
+	tokenEquals
 	tokenColonDash
 	tokenQuery
 )
@@ -54,6 +55,8 @@ func (t token) String() string {
 		return "."
 	case tokenBar:
 		return "|"
+	case tokenEquals:
+		return "="
 	case tokenColonDash:
 		return ":-"
 	case tokenQuery:
@@ -148,6 +151,14 @@ func lex(src string) ([]token, error) {
 			tokens = append(tokens, token{
 				typ:     tokenBar,
 				literal: "|",
+				line:    startLine,
+				column:  startColumn,
+			})
+		case ch == '=':
+			l.advance()
+			tokens = append(tokens, token{
+				typ:     tokenEquals,
+				literal: "=",
 				line:    startLine,
 				column:  startColumn,
 			})

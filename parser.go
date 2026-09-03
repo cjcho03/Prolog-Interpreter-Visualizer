@@ -118,7 +118,7 @@ func (p *parser) parseClause() (Clause, error) {
 }
 
 func (p *parser) parseGoalList() ([]Predicate, error) {
-	first, err := p.parsePredicate()
+	first, err := p.parseGoal()
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +126,7 @@ func (p *parser) parseGoalList() ([]Predicate, error) {
 	goals := []Predicate{first}
 
 	for p.match(tokenComma) {
-		next, err := p.parsePredicate()
+		next, err := p.parseGoal()
 		if err != nil {
 			return nil, err
 		}
@@ -135,6 +135,40 @@ func (p *parser) parseGoalList() ([]Predicate, error) {
 	}
 
 	return goals, nil
+}
+
+func (p *parser) parseGoal() (Predicate, error) {
+	left, err := p.parseTerm()
+	if err != nil {
+		return Predicate{}, err
+	}
+
+	if p.match(tokenEquals) {
+		right, err := p.parseTerm()
+		if err != nil {
+			return Predicate{}, err
+		}
+
+		return Predicate{
+			Name: "=",
+			Args: []Term{left, right},
+		}, nil
+	}
+
+	switch value := left.(type) {
+	case Atom:
+		return Predicate{Name: string(value)}, nil
+	case Compound:
+		return Predicate{
+			Name: value.Name,
+			Args: value.Args,
+		}, nil
+	default:
+		return Predicate{}, p.errorf(
+			p.peek(),
+			"expected predicate goal or '=' after term",
+		)
+	}
 }
 
 func (p *parser) parsePredicate() (Predicate, error) {

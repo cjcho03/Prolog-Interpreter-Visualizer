@@ -185,3 +185,34 @@ func TestSolveTraceShowsBuiltinFailure(t *testing.T) {
 		t.Fatalf("expected built-in failure description, got %q", failed.Description)
 	}
 }
+
+func TestSolveTraceShowsUnificationBinding(t *testing.T) {
+	query, err := ParseQuery("?- X = alice.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	events, answers := collectTrace(Engine{}, query...)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected =/2 to produce 1 answer, got %d", len(answers))
+	}
+
+	builtin, found := findFirstEvent(events, EventBuiltin)
+	if !found {
+		t.Fatal("expected trace to include a builtin event")
+	}
+
+	if builtin.Goal != "X = alice" {
+		t.Fatalf("expected builtin goal X = alice, got %q", builtin.Goal)
+	}
+
+	solution, found := findFirstEvent(events, EventSolution)
+	if !found {
+		t.Fatal("expected trace to include a solution event")
+	}
+
+	if solution.Bindings["X"] != "alice" {
+		t.Fatalf("expected solution trace to show X = alice, got %v", solution.Bindings)
+	}
+}
