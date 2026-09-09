@@ -20,6 +20,17 @@ const (
 	tokenDot
 	tokenBar
 	tokenEquals
+	tokenLess
+	tokenGreater
+	tokenLessEqual
+	tokenGreaterEqual
+	tokenArithmeticEqual
+	tokenArithmeticNotEqual
+	tokenPlus
+	tokenMinus
+	tokenStar
+	tokenPower
+	tokenSlash
 	tokenColonDash
 	tokenQuery
 )
@@ -57,6 +68,28 @@ func (t token) String() string {
 		return "|"
 	case tokenEquals:
 		return "="
+	case tokenLess:
+		return "<"
+	case tokenGreater:
+		return ">"
+	case tokenLessEqual:
+		return "=<"
+	case tokenGreaterEqual:
+		return ">="
+	case tokenArithmeticEqual:
+		return "=:="
+	case tokenArithmeticNotEqual:
+		return "=\\="
+	case tokenPlus:
+		return "+"
+	case tokenMinus:
+		return "-"
+	case tokenStar:
+		return "*"
+	case tokenPower:
+		return "**"
+	case tokenSlash:
+		return "/"
 	case tokenColonDash:
 		return ":-"
 	case tokenQuery:
@@ -156,9 +189,121 @@ func lex(src string) ([]token, error) {
 			})
 		case ch == '=':
 			l.advance()
+
+			switch l.peek() {
+			case '<':
+				l.advance()
+				tokens = append(tokens, token{
+					typ:     tokenLessEqual,
+					literal: "=<",
+					line:    startLine,
+					column:  startColumn,
+				})
+			case ':':
+				l.advance()
+				if l.peek() != '=' {
+					return nil, fmt.Errorf(
+						"%d:%d: expected '=' after '=:'",
+						startLine,
+						startColumn,
+					)
+				}
+				l.advance()
+				tokens = append(tokens, token{
+					typ:     tokenArithmeticEqual,
+					literal: "=:=",
+					line:    startLine,
+					column:  startColumn,
+				})
+			case '\\':
+				l.advance()
+				if l.peek() != '=' {
+					return nil, fmt.Errorf(
+						"%d:%d: expected '=' after '=\\\\'",
+						startLine,
+						startColumn,
+					)
+				}
+				l.advance()
+				tokens = append(tokens, token{
+					typ:     tokenArithmeticNotEqual,
+					literal: "=\\=",
+					line:    startLine,
+					column:  startColumn,
+				})
+			default:
+				tokens = append(tokens, token{
+					typ:     tokenEquals,
+					literal: "=",
+					line:    startLine,
+					column:  startColumn,
+				})
+			}
+		case ch == '<':
+			l.advance()
 			tokens = append(tokens, token{
-				typ:     tokenEquals,
-				literal: "=",
+				typ:     tokenLess,
+				literal: "<",
+				line:    startLine,
+				column:  startColumn,
+			})
+		case ch == '>':
+			l.advance()
+			if l.peek() == '=' {
+				l.advance()
+				tokens = append(tokens, token{
+					typ:     tokenGreaterEqual,
+					literal: ">=",
+					line:    startLine,
+					column:  startColumn,
+				})
+			} else {
+				tokens = append(tokens, token{
+					typ:     tokenGreater,
+					literal: ">",
+					line:    startLine,
+					column:  startColumn,
+				})
+			}
+		case ch == '+':
+			l.advance()
+			tokens = append(tokens, token{
+				typ:     tokenPlus,
+				literal: "+",
+				line:    startLine,
+				column:  startColumn,
+			})
+		case ch == '-':
+			l.advance()
+			tokens = append(tokens, token{
+				typ:     tokenMinus,
+				literal: "-",
+				line:    startLine,
+				column:  startColumn,
+			})
+		case ch == '*':
+			l.advance()
+			if l.peek() == '*' {
+				l.advance()
+				tokens = append(tokens, token{
+					typ:     tokenPower,
+					literal: "**",
+					line:    startLine,
+					column:  startColumn,
+				})
+			} else {
+				tokens = append(tokens, token{
+					typ:     tokenStar,
+					literal: "*",
+					line:    startLine,
+					column:  startColumn,
+				})
+			}
+		case ch == '/':
+			l.advance()
+			tokens = append(tokens, token{
+				typ:     tokenSlash,
+				literal: "/",
 				line:    startLine,
 				column:  startColumn,
 			})
@@ -271,6 +416,16 @@ func (l *lexer) readNumber() string {
 		l.advance()
 	}
 
+	// Treat a dot as part of the number only when it starts a fractional part.
+	// This keeps the clause terminator in `value(2).` separate from the number.
+	if l.peek() == '.' && unicode.IsDigit(l.peekNext()) {
+		l.advance()
+
+		for unicode.IsDigit(l.peek()) {
+			l.advance()
+		}
+	}
+
 	return string(l.input[start:l.pos])
 }
 
@@ -280,6 +435,14 @@ func (l *lexer) peek() rune {
 	}
 
 	return l.input[l.pos]
+}
+
+func (l *lexer) peekNext() rune {
+	if l.pos+1 >= len(l.input) {
+		return 0
+	}
+
+	return l.input[l.pos+1]
 }
 
 func (l *lexer) advance() rune {

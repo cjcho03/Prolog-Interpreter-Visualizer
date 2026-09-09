@@ -143,14 +143,37 @@ func (p *parser) parseGoal() (Predicate, error) {
 		return Predicate{}, err
 	}
 
-	if p.match(tokenEquals) {
+	switch p.peek().typ {
+	case tokenEquals,
+		tokenLess,
+		tokenGreater,
+		tokenLessEqual,
+		tokenGreaterEqual,
+		tokenArithmeticEqual,
+		tokenArithmeticNotEqual:
+		op := p.advance().literal
+
 		right, err := p.parseTerm()
 		if err != nil {
 			return Predicate{}, err
 		}
 
 		return Predicate{
-			Name: "=",
+			Name: op,
+			Args: []Term{left, right},
+		}, nil
+	}
+
+	if p.peek().typ == tokenIdent && p.peek().literal == "is" {
+		p.advance()
+
+		right, err := p.parseTerm()
+		if err != nil {
+			return Predicate{}, err
+		}
+
+		return Predicate{
+			Name: "is",
 			Args: []Term{left, right},
 		}, nil
 	}
@@ -166,7 +189,7 @@ func (p *parser) parseGoal() (Predicate, error) {
 	default:
 		return Predicate{}, p.errorf(
 			p.peek(),
-			"expected predicate goal or '=' after term",
+			"expected predicate goal, comparison operator, '=', or 'is' after term",
 		)
 	}
 }
@@ -223,6 +246,101 @@ func (p *parser) parseTermList() ([]Term, error) {
 }
 
 func (p *parser) parseTerm() (Term, error) {
+	return p.parseAdditiveTerm()
+}
+
+// Arithmetic operators are represented as ordinary compound terms. For example,
+// 2 + 3 * 4 parses as +(2, *(3, 4)). Evaluation happens only through is/2.
+func (p *parser) parseAdditiveTerm() (Term, error) {
+	left, err := p.parseMultiplicativeTerm()
+	if err != nil {
+		return nil, err
+	}
+
+	for p.peek().typ == tokenPlus || p.peek().typ == tokenMinus {
+		op := p.advance().literal
+
+		right, err := p.parseMultiplicativeTerm()
+		if err != nil {
+			return nil, err
+		}
+
+		left = Compound{
+			Name: op,
+			Args: []Term{left, right},
+		}
+	}
+
+	return left, nil
+}
+
+func (p *parser) parseMultiplicativeTerm() (Term, error) {
+	left, err := p.parseUnaryTerm()
+	if err != nil {
+		return nil, err
+	}
+
+	for p.peek().typ == tokenStar ||
+		p.peek().typ == tokenSlash ||
+		(p.peek().typ == tokenIdent && p.peek().literal == "mod") {
+		op := p.advance().literal
+
+		right, err := p.parseUnaryTerm()
+		if err != nil {
+			return nil, err
+		}
+
+		left = Compound{
+			Name: op,
+			Args: []Term{left, right},
+		}
+	}
+
+	return left, nil
+}
+
+func (p *parser) parseUnaryTerm() (Term, error) {
+	if p.peek().typ == tokenPlus || p.peek().typ == tokenMinus {
+		op := p.advance().literal
+
+		operand, err := p.parseUnaryTerm()
+		if err != nil {
+			return nil, err
+		}
+
+		return Compound{
+			Name: op,
+			Args: []Term{operand},
+		}, nil
+	}
+
+	return p.parsePowerTerm()
+}
+
+// Exponentiation binds more tightly than unary +/- and is right-associative.
+// For example, 2 ** 3 ** 2 parses as **(2, **(3, 2)).
+func (p *parser) parsePowerTerm() (Term, error) {
+	left, err := p.parsePrimaryTerm()
+	if err != nil {
+		return nil, err
+	}
+
+	if !p.match(tokenPower) {
+		return left, nil
+	}
+
+	right, err := p.parseUnaryTerm()
+	if err != nil {
+		return nil, err
+	}
+
+	return Compound{
+		Name: "**",
+		Args: []Term{left, right},
+	}, nil
+}
+
+func (p *parser) parsePrimaryTerm() (Term, error) {
 	tok := p.peek()
 
 	switch tok.typ {
@@ -267,8 +385,22 @@ func (p *parser) parseTerm() (Term, error) {
 	case tokenLBracket:
 		return p.parseListTerm()
 
+	case tokenLParen:
+		p.advance()
+
+		term, err := p.parseTerm()
+		if err != nil {
+			return nil, err
+		}
+
+		if err := p.expect(tokenRParen); err != nil {
+			return nil, err
+		}
+
+		return term, nil
+
 	default:
-		return nil, p.errorf(tok, "expected atom, number, variable, or compound term")
+		return nil, p.errorf(tok, "expected atom, number, variable, compound term, list, or parenthesized term")
 	}
 }
 
@@ -410,6 +542,16 @@ func tokenName(typ tokenType) string {
 		return "."
 	case tokenBar:
 		return "|"
+	case tokenEquals:
+		return "="
+	case tokenPlus:
+		return "+"
+	case tokenMinus:
+		return "-"
+	case tokenStar:
+		return "*"
+	case tokenSlash:
+		return "/"
 	case tokenColonDash:
 		return ":-"
 	case tokenQuery:

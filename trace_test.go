@@ -216,3 +216,58 @@ func TestSolveTraceShowsUnificationBinding(t *testing.T) {
 		t.Fatalf("expected solution trace to show X = alice, got %v", solution.Bindings)
 	}
 }
+
+func TestSolveTraceShowsArithmeticBuiltinBinding(t *testing.T) {
+	query, err := ParseQuery("?- X is 2 + 3 * 4.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var events []TraceEvent
+	answers := (Engine{}).SolveWithTrace(func(event TraceEvent) {
+		events = append(events, event)
+	}, query...)
+
+	if len(answers) != 1 {
+		t.Fatalf("expected 1 answer, got %d", len(answers))
+	}
+
+	builtin, found := findFirstEvent(events, EventBuiltin)
+	if !found {
+		t.Fatal("expected trace to include a builtin event")
+	}
+
+	if builtin.Goal != "X is 2 + 3 * 4" {
+		t.Fatalf("expected arithmetic builtin goal, got %q", builtin.Goal)
+	}
+
+	solution, found := findFirstEvent(events, EventSolution)
+	if !found {
+		t.Fatal("expected trace to include a solution event")
+	}
+
+	if solution.Bindings["X"] != "14" {
+		t.Fatalf("expected solution trace to show X = 14, got %q", solution.Bindings["X"])
+	}
+}
+
+func TestSolveTraceShowsNumericComparisonBuiltin(t *testing.T) {
+	query, err := ParseQuery("?- 2 + 3 =:= 5.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	events, answers := collectTrace(Engine{}, query...)
+	if len(answers) != 1 {
+		t.Fatalf("expected comparison to succeed, got %d answers", len(answers))
+	}
+
+	builtin, found := findFirstEvent(events, EventBuiltin)
+	if !found {
+		t.Fatal("expected trace to include a builtin event")
+	}
+
+	if builtin.Goal != "2 + 3 =:= 5" {
+		t.Fatalf("expected comparison builtin goal, got %q", builtin.Goal)
+	}
+}

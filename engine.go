@@ -1,5 +1,11 @@
 package prolog
 
+import (
+	"math"
+	"strconv"
+	"strings"
+)
+
 // builtinPredicate executes a deterministic built-in goal.
 // It may add bindings to sub and returns whether the goal succeeds.
 type builtinPredicate func(args []Term, sub Substitution) bool
@@ -11,11 +17,18 @@ type predicateIndicator struct {
 }
 
 // builtinPredicates is checked before user-defined clauses.
-// Add future built-ins here, such as =/2 or is/2.
+// Add future built-ins here by predicate name and arity.
 var builtinPredicates = map[predicateIndicator]builtinPredicate{
 	{Name: "true", Arity: 0}: builtinTrue,
 	{Name: "fail", Arity: 0}: builtinFail,
 	{Name: "=", Arity: 2}:    builtinUnify,
+	{Name: "is", Arity: 2}:   builtinIs,
+	{Name: "<", Arity: 2}:    builtinLess,
+	{Name: ">", Arity: 2}:    builtinGreater,
+	{Name: "=<", Arity: 2}:   builtinLessEqual,
+	{Name: ">=", Arity: 2}:   builtinGreaterEqual,
+	{Name: "=:=", Arity: 2}:  builtinArithmeticEqual,
+	{Name: "=\\=", Arity: 2}: builtinArithmeticNotEqual,
 }
 
 func builtinTrue(_ []Term, _ Substitution) bool {
@@ -28,6 +41,205 @@ func builtinFail(_ []Term, _ Substitution) bool {
 
 func builtinUnify(args []Term, sub Substitution) bool {
 	return unify(args[0], args[1], sub)
+}
+
+type arithmeticValue struct {
+	value   float64
+	isFloat bool
+}
+
+func builtinIs(args []Term, sub Substitution) bool {
+	value, ok := evaluateArithmetic(args[1], sub)
+	if !ok {
+		return false
+	}
+
+	return unify(args[0], Number(formatArithmeticValue(value)), sub)
+}
+
+func builtinLess(args []Term, sub Substitution) bool {
+	return compareArithmetic(args, sub, func(left, right float64) bool {
+		return left < right
+	})
+}
+
+func builtinGreater(args []Term, sub Substitution) bool {
+	return compareArithmetic(args, sub, func(left, right float64) bool {
+		return left > right
+	})
+}
+
+func builtinLessEqual(args []Term, sub Substitution) bool {
+	return compareArithmetic(args, sub, func(left, right float64) bool {
+		return left <= right
+	})
+}
+
+func builtinGreaterEqual(args []Term, sub Substitution) bool {
+	return compareArithmetic(args, sub, func(left, right float64) bool {
+		return left >= right
+	})
+}
+
+func builtinArithmeticEqual(args []Term, sub Substitution) bool {
+	return compareArithmetic(args, sub, func(left, right float64) bool {
+		return left == right
+	})
+}
+
+func builtinArithmeticNotEqual(args []Term, sub Substitution) bool {
+	return compareArithmetic(args, sub, func(left, right float64) bool {
+		return left != right
+	})
+}
+
+func compareArithmetic(
+	args []Term,
+	sub Substitution,
+	compare func(left, right float64) bool,
+) bool {
+	left, ok := evaluateArithmetic(args[0], sub)
+	if !ok {
+		return false
+	}
+
+	right, ok := evaluateArithmetic(args[1], sub)
+	if !ok {
+		return false
+	}
+
+	return compare(left.value, right.value)
+}
+
+func evaluateArithmetic(term Term, sub Substitution) (arithmeticValue, bool) {
+	term = resolveTerm(term, sub)
+
+	switch value := term.(type) {
+	case Number:
+		parsed, err := strconv.ParseFloat(string(value), 64)
+		if err != nil || math.IsNaN(parsed) || math.IsInf(parsed, 0) {
+			return arithmeticValue{}, false
+		}
+
+		return arithmeticValue{
+			value:   parsed,
+			isFloat: strings.Contains(string(value), "."),
+		}, true
+
+	case Compound:
+		return evaluateArithmeticCompound(value, sub)
+
+	default:
+		// Unbound variables and non-numeric atoms are not evaluable.
+		return arithmeticValue{}, false
+	}
+}
+
+func evaluateArithmeticCompound(
+	compound Compound,
+	sub Substitution,
+) (arithmeticValue, bool) {
+	if compound.Name == "abs" && len(compound.Args) == 1 {
+		operand, ok := evaluateArithmetic(compound.Args[0], sub)
+		if !ok {
+			return arithmeticValue{}, false
+		}
+
+		operand.value = math.Abs(operand.value)
+		return operand, true
+	}
+
+	if (compound.Name == "+" || compound.Name == "-") && len(compound.Args) == 1 {
+		operand, ok := evaluateArithmetic(compound.Args[0], sub)
+		if !ok {
+			return arithmeticValue{}, false
+		}
+
+		if compound.Name == "-" {
+			operand.value = -operand.value
+		}
+
+		return operand, true
+	}
+
+	if len(compound.Args) != 2 {
+		return arithmeticValue{}, false
+	}
+
+	left, ok := evaluateArithmetic(compound.Args[0], sub)
+	if !ok {
+		return arithmeticValue{}, false
+	}
+
+	right, ok := evaluateArithmetic(compound.Args[1], sub)
+	if !ok {
+		return arithmeticValue{}, false
+	}
+
+	if compound.Name == "min" {
+		if left.value <= right.value {
+			return left, true
+		}
+
+		return right, true
+	}
+
+	if compound.Name == "max" {
+		if left.value >= right.value {
+			return left, true
+		}
+
+		return right, true
+	}
+
+	result := arithmeticValue{
+		isFloat: left.isFloat || right.isFloat,
+	}
+
+	switch compound.Name {
+	case "+":
+		result.value = left.value + right.value
+	case "-":
+		result.value = left.value - right.value
+	case "*":
+		result.value = left.value * right.value
+	case "/":
+		if right.value == 0 {
+			return arithmeticValue{}, false
+		}
+
+		result.value = left.value / right.value
+		result.isFloat = true
+	case "mod":
+		if left.isFloat || right.isFloat || right.value == 0 {
+			return arithmeticValue{}, false
+		}
+
+		result.value = math.Mod(left.value, right.value)
+	case "**":
+		result.value = math.Pow(left.value, right.value)
+		if right.value < 0 || math.Trunc(result.value) != result.value {
+			result.isFloat = true
+		}
+	default:
+		return arithmeticValue{}, false
+	}
+
+	if math.IsNaN(result.value) || math.IsInf(result.value, 0) {
+		return arithmeticValue{}, false
+	}
+
+	return result, true
+}
+
+func formatArithmeticValue(value arithmeticValue) string {
+	text := strconv.FormatFloat(value.value, 'f', -1, 64)
+
+	if value.isFloat && !strings.Contains(text, ".") {
+		return text + ".0"
+	}
+
+	return text
 }
 
 func lookupBuiltin(goal Predicate) (builtinPredicate, bool) {

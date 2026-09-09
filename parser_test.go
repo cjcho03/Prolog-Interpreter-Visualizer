@@ -585,3 +585,194 @@ func requireParserNumberBinding(
 		t.Fatalf("expected %s = %s, got %s", variable, want, number)
 	}
 }
+
+func TestParseIsArithmeticQuery(t *testing.T) {
+	goals, err := ParseQuery("?- X is 2 + 3 * 4.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(goals) != 1 {
+		t.Fatalf("expected 1 query goal, got %d", len(goals))
+	}
+
+	if goals[0].Name != "is" || len(goals[0].Args) != 2 {
+		t.Fatalf("expected is/2, got %s/%d", goals[0].Name, len(goals[0].Args))
+	}
+
+	if got := goals[0].String(); got != "X is 2 + 3 * 4" {
+		t.Fatalf("expected %q, got %q", "X is 2 + 3 * 4", got)
+	}
+}
+
+func TestParseArithmeticParenthesesPreserveGrouping(t *testing.T) {
+	goals, err := ParseQuery("?- X is (2 + 3) * 4.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := goals[0].String(); got != "X is (2 + 3) * 4" {
+		t.Fatalf("expected %q, got %q", "X is (2 + 3) * 4", got)
+	}
+}
+
+func TestParseArithmeticIsLeftAssociative(t *testing.T) {
+	goals, err := ParseQuery("?- X is 10 - 3 - 2.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := goals[0].String(); got != "X is 10 - 3 - 2" {
+		t.Fatalf("expected %q, got %q", "X is 10 - 3 - 2", got)
+	}
+}
+
+func TestParseArithmeticRightGroupingIsPrinted(t *testing.T) {
+	goals, err := ParseQuery("?- X is 10 - (3 - 2).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := goals[0].String(); got != "X is 10 - (3 - 2)" {
+		t.Fatalf("expected %q, got %q", "X is 10 - (3 - 2)", got)
+	}
+}
+
+func TestParseArithmeticSupportsDecimalNumbers(t *testing.T) {
+	goals, err := ParseQuery("?- X is 2.5 + 0.5.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := goals[0].String(); got != "X is 2.5 + 0.5" {
+		t.Fatalf("expected %q, got %q", "X is 2.5 + 0.5", got)
+	}
+}
+
+func TestParseArithmeticSupportsUnaryMinus(t *testing.T) {
+	goals, err := ParseQuery("?- X is -(2 + 3).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := goals[0].String(); got != "X is -(2 + 3)" {
+		t.Fatalf("expected %q, got %q", "X is -(2 + 3)", got)
+	}
+}
+
+func TestParseUnificationCanBindArithmeticExpression(t *testing.T) {
+	goals, err := ParseQuery("?- X = 2 + 3 * 4.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := goals[0].String(); got != "X = 2 + 3 * 4" {
+		t.Fatalf("expected %q, got %q", "X = 2 + 3 * 4", got)
+	}
+}
+
+func TestParseIsInRuleBody(t *testing.T) {
+	clauses, err := ParseProgram("double(X, Y) :- Y is X * 2.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(clauses) != 1 {
+		t.Fatalf("expected 1 clause, got %d", len(clauses))
+	}
+
+	if got := clauses[0].String(); got != "double(X, Y) :- Y is X * 2" {
+		t.Fatalf("expected %q, got %q", "double(X, Y) :- Y is X * 2", got)
+	}
+}
+
+func TestParseNumericComparisonOperators(t *testing.T) {
+	tests := []struct {
+		query string
+		want  string
+		name  string
+	}{
+		{query: "?- 3 < 5.", want: "3 < 5", name: "<"},
+		{query: "?- 5 > 3.", want: "5 > 3", name: ">"},
+		{query: "?- 3 =< 5.", want: "3 =< 5", name: "=<"},
+		{query: "?- 5 >= 5.", want: "5 >= 5", name: ">="},
+		{query: "?- 10 =:= 5 + 5.", want: "10 =:= 5 + 5", name: "=:="},
+		{query: "?- 4 =\\= 2 + 3.", want: "4 =\\= 2 + 3", name: "=\\="},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			goals, err := ParseQuery(test.query)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if len(goals) != 1 {
+				t.Fatalf("expected 1 query goal, got %d", len(goals))
+			}
+
+			if goals[0].Name != test.name || len(goals[0].Args) != 2 {
+				t.Fatalf("expected %s/2, got %s/%d", test.name, goals[0].Name, len(goals[0].Args))
+			}
+
+			if got := goals[0].String(); got != test.want {
+				t.Fatalf("expected %q, got %q", test.want, got)
+			}
+		})
+	}
+}
+
+func TestParseNumericComparisonInRuleBody(t *testing.T) {
+	clauses, err := ParseProgram("adult(Age) :- Age >= 18.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := clauses[0].String(); got != "adult(Age) :- Age >= 18" {
+		t.Fatalf("expected %q, got %q", "adult(Age) :- Age >= 18", got)
+	}
+}
+
+func TestParseArithmeticSupportsMod(t *testing.T) {
+	goals, err := ParseQuery("?- X is 10 mod 3.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := goals[0].String(); got != "X is 10 mod 3" {
+		t.Fatalf("expected %q, got %q", "X is 10 mod 3", got)
+	}
+}
+
+func TestParseArithmeticSupportsPower(t *testing.T) {
+	goals, err := ParseQuery("?- X is 2 ** 3 ** 2.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := goals[0].String(); got != "X is 2 ** 3 ** 2" {
+		t.Fatalf("expected %q, got %q", "X is 2 ** 3 ** 2", got)
+	}
+}
+
+func TestParseArithmeticPowerPrecedence(t *testing.T) {
+	goals, err := ParseQuery("?- X is -2 ** 2 + 3 * 4.")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := goals[0].String(); got != "X is -2 ** 2 + 3 * 4" {
+		t.Fatalf("expected %q, got %q", "X is -2 ** 2 + 3 * 4", got)
+	}
+}
+
+func TestParseArithmeticSupportsFunctions(t *testing.T) {
+	goals, err := ParseQuery("?- X is max(abs(-7), min(4, 9)).")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := goals[0].String(); got != "X is max(abs(-7), min(4, 9))" {
+		t.Fatalf("expected %q, got %q", "X is max(abs(-7), min(4, 9))", got)
+	}
+}

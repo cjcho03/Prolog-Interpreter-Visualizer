@@ -42,6 +42,11 @@ func (c Compound) String() string {
 			return formatList(elements, tail)
 		}
 	}
+
+	if isArithmeticCompound(c) {
+		return formatArithmeticTerm(c, 0, false)
+	}
+
 	return formatTermWithArgs(c.Name, c.Args)
 }
 
@@ -51,11 +56,20 @@ type Predicate struct {
 }
 
 func (p Predicate) String() string {
-	if p.Name == "=" && len(p.Args) == 2 {
-		return p.Args[0].String() + " = " + p.Args[1].String()
+	if len(p.Args) == 2 && isInfixPredicate(p.Name) {
+		return p.Args[0].String() + " " + p.Name + " " + p.Args[1].String()
 	}
 
 	return formatTermWithArgs(p.Name, p.Args)
+}
+
+func isInfixPredicate(name string) bool {
+	switch name {
+	case "=", "is", "<", ">", "=<", ">=", "=:=", "=\\=":
+		return true
+	default:
+		return false
+	}
 }
 
 type Substitution map[Var]Term
@@ -68,6 +82,101 @@ func copySubstitution(s Substitution) Substitution {
 	}
 
 	return result
+}
+
+func isArithmeticCompound(compound Compound) bool {
+	if len(compound.Args) == 1 {
+		return compound.Name == "+" || compound.Name == "-"
+	}
+
+	if len(compound.Args) == 2 {
+		switch compound.Name {
+		case "+", "-", "*", "/", "mod", "**":
+			return true
+		}
+	}
+
+	return false
+}
+
+func arithmeticPrecedence(compound Compound) int {
+	if len(compound.Args) == 1 {
+		return 3
+	}
+
+	switch compound.Name {
+	case "+", "-":
+		return 1
+	case "*", "/", "mod":
+		return 2
+	case "**":
+		return 4
+	default:
+		return 5
+	}
+}
+
+func formatArithmeticTerm(term Term, parentPrecedence int, rightChild bool) string {
+	return formatArithmeticTermWithParent(term, parentPrecedence, rightChild, "")
+}
+
+func formatArithmeticTermWithParent(
+	term Term,
+	parentPrecedence int,
+	rightChild bool,
+	parentOperator string,
+) string {
+	compound, ok := term.(Compound)
+	if !ok || !isArithmeticCompound(compound) {
+		return term.String()
+	}
+
+	precedence := arithmeticPrecedence(compound)
+	var text string
+
+	if len(compound.Args) == 1 {
+		operand := formatArithmeticTermWithParent(
+			compound.Args[0],
+			precedence,
+			true,
+			compound.Name,
+		)
+		text = compound.Name + operand
+	} else {
+		left := formatArithmeticTermWithParent(
+			compound.Args[0],
+			precedence,
+			false,
+			compound.Name,
+		)
+		right := formatArithmeticTermWithParent(
+			compound.Args[1],
+			precedence,
+			true,
+			compound.Name,
+		)
+		text = left + " " + compound.Name + " " + right
+	}
+
+	needsParentheses := precedence < parentPrecedence
+
+	if precedence == parentPrecedence {
+		if parentOperator == "**" {
+			// ** is right-associative, so a same-precedence left child must have
+			// come from explicit grouping.
+			needsParentheses = !rightChild
+		} else {
+			// The other binary operators are left-associative. A same-precedence
+			// right child therefore needs parentheses to preserve the expression tree.
+			needsParentheses = rightChild
+		}
+	}
+
+	if needsParentheses {
+		return "(" + text + ")"
+	}
+
+	return text
 }
 
 func formatTermWithArgs(name string, args []Term) string {

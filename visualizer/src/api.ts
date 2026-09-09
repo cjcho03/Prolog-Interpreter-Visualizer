@@ -2,6 +2,7 @@ import type { SolveRequest, SolveResponse, TraceEvent, TraceEventType } from "./
 
 const eventTypes = new Set<TraceEventType>([
   "goal",
+  "builtin",
   "try_clause",
   "unified",
   "rule_expanded",

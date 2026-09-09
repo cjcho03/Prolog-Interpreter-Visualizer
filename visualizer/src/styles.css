@@ -176,6 +176,10 @@ code {
   border-left-color: #7aa8ff;
 }
 
+.trace-builtin {
+  border-left-color: #8fc3ff;
+}
+
 .trace-try_clause {
   border-left-color: #f0bc69;
 }

@@ -1,5 +1,6 @@
 export type TraceEventType =
   | "goal"
+  | "builtin"
   | "try_clause"
   | "unified"
   | "rule_expanded"

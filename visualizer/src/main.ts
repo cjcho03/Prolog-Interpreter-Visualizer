@@ -45,6 +45,7 @@ const errorBox = getElement<HTMLParagraphElement>("error-message");
 
 const labels: Record<TraceEventType, string> = {
   goal: "Goal",
+  builtin: "Built-in",
   try_clause: "Try Clause",
   unified: "Unified",
   rule_expanded: "Rule Expanded",
