@@ -22,6 +22,7 @@ var builtinPredicates = map[predicateIndicator]builtinPredicate{
 	{Name: "true", Arity: 0}: builtinTrue,
 	{Name: "fail", Arity: 0}: builtinFail,
 	{Name: "=", Arity: 2}:    builtinUnify,
+	{Name: "\\=", Arity: 2}:  builtinNotUnifiable,
 	{Name: "is", Arity: 2}:   builtinIs,
 	{Name: "<", Arity: 2}:    builtinLess,
 	{Name: ">", Arity: 2}:    builtinGreater,
@@ -41,6 +42,14 @@ func builtinFail(_ []Term, _ Substitution) bool {
 
 func builtinUnify(args []Term, sub Substitution) bool {
 	return unify(args[0], args[1], sub)
+}
+
+// builtinNotUnifiable succeeds only when its arguments cannot be unified.
+// It probes unification against a copy so a failed \=/2 check never leaks
+// temporary bindings into the current solution.
+func builtinNotUnifiable(args []Term, sub Substitution) bool {
+	probe := copySubstitution(sub)
+	return !unify(args[0], args[1], probe)
 }
 
 type arithmeticValue struct {

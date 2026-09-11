@@ -20,6 +20,7 @@ const (
 	tokenDot
 	tokenBar
 	tokenEquals
+	tokenNotUnifiable
 	tokenLess
 	tokenGreater
 	tokenLessEqual
@@ -68,6 +69,8 @@ func (t token) String() string {
 		return "|"
 	case tokenEquals:
 		return "="
+	case tokenNotUnifiable:
+		return "\\="
 	case tokenLess:
 		return "<"
 	case tokenGreater:
@@ -239,6 +242,24 @@ func lex(src string) ([]token, error) {
 					column:  startColumn,
 				})
 			}
+		case ch == '\\':
+			l.advance()
+
+			if l.peek() != '=' {
+				return nil, fmt.Errorf(
+					"%d:%d: expected '=' after '\\\\'",
+					startLine,
+					startColumn,
+				)
+			}
+
+			l.advance()
+			tokens = append(tokens, token{
+				typ:     tokenNotUnifiable,
+				literal: "\\=",
+				line:    startLine,
+				column:  startColumn,
+			})
 		case ch == '<':
 			l.advance()
 			tokens = append(tokens, token{

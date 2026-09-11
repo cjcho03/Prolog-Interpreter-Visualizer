@@ -145,6 +145,7 @@ func (p *parser) parseGoal() (Predicate, error) {
 
 	switch p.peek().typ {
 	case tokenEquals,
+		tokenNotUnifiable,
 		tokenLess,
 		tokenGreater,
 		tokenLessEqual,
@@ -544,6 +545,8 @@ func tokenName(typ tokenType) string {
 		return "|"
 	case tokenEquals:
 		return "="
+	case tokenNotUnifiable:
+		return "\\="
 	case tokenPlus:
 		return "+"
 	case tokenMinus:

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"os"
@@ -12,18 +13,24 @@ import (
 
 const usage = `Usage: prolog <program.pl> [query]
 
-Load a Prolog program from disk and optionally execute one query.
+Load a Prolog program from disk.
+
+With a query argument, execute one query and exit.
+Without a query argument, start an interactive ?- prompt.
 
 Examples:
   prolog family.pl
   prolog family.pl "?- grandparent(alice, Who)."
+
+Interactive commands:
+  halt.   exit the REPL
 `
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+	os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
 }
 
-func run(args []string, stdout, stderr io.Writer) int {
+func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, usage)
 		return 2
@@ -48,8 +55,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 		filepath.Base(programPath),
 	)
 
+	engine := prolog.Engine{Clauses: clauses}
+
 	if len(args) == 1 {
-		return 0
+		fmt.Fprintln(stdout)
+		return runREPL(engine, stdin, stdout, stderr)
 	}
 
 	queryText := strings.TrimSpace(strings.Join(args[1:], " "))
@@ -59,11 +69,54 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	answers := (prolog.Engine{Clauses: clauses}).Solve(goals...)
+	answers := engine.Solve(goals...)
 
 	fmt.Fprintln(stdout)
 	writeAnswers(stdout, goals, answers)
 	return 0
+}
+
+func runREPL(
+	engine prolog.Engine,
+	stdin io.Reader,
+	stdout, stderr io.Writer,
+) int {
+	scanner := bufio.NewScanner(stdin)
+
+	for {
+		fmt.Fprint(stdout, "?- ")
+
+		if !scanner.Scan() {
+			if err := scanner.Err(); err != nil {
+				fmt.Fprintf(stderr, "error: read query: %v\n", err)
+				return 1
+			}
+
+			return 0
+		}
+
+		queryText := strings.TrimSpace(scanner.Text())
+		if queryText == "" {
+			continue
+		}
+
+		if queryText == "halt." || queryText == "quit." || queryText == "exit." {
+			return 0
+		}
+
+		if !strings.HasPrefix(queryText, "?-") {
+			queryText = "?- " + queryText
+		}
+
+		goals, err := prolog.ParseQuery(queryText)
+		if err != nil {
+			fmt.Fprintf(stderr, "error: parse query: %v\n", err)
+			continue
+		}
+
+		answers := engine.Solve(goals...)
+		writeAnswers(stdout, goals, answers)
+	}
 }
 
 func writeAnswers(
@@ -99,7 +152,7 @@ func writeAnswers(
 		}
 
 		if len(bindings) == 0 {
-			fmt.Fprintf(writer, "true")
+			fmt.Fprintln(writer, "true.")
 			continue
 		}
 

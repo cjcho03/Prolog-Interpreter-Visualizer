@@ -65,7 +65,7 @@ func (p Predicate) String() string {
 
 func isInfixPredicate(name string) bool {
 	switch name {
-	case "=", "is", "<", ">", "=<", ">=", "=:=", "=\\=":
+	case "=", "\\=", "is", "<", ">", "=<", ">=", "=:=", "=\\=":
 		return true
 	default:
 		return false
