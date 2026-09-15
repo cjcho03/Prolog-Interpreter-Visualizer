@@ -1,7 +1,5 @@
 :root {
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #e8edf4;
   background: #10141b;
 }
@@ -14,19 +12,26 @@ body {
   margin: 0;
   min-width: 320px;
   background: #10141b;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+button,
+select {
+  border: 1px solid #3d4b5f;
+  border-radius: 4px;
+  padding: 0.45rem 0.65rem;
+  color: inherit;
+  background: #202936;
+  font: inherit;
 }
 
 button {
-  border: 1px solid #3d4b5f;
-  border-radius: 8px;
-  padding: 0.65rem 0.9rem;
-  color: inherit;
-  background: #202936;
   cursor: pointer;
 }
 
 button:hover:not(:disabled) {
-  background: #2a3647;
+  background: #263141;
 }
 
 button:disabled {
@@ -35,8 +40,8 @@ button:disabled {
 }
 
 code {
-  padding: 0.12rem 0.35rem;
-  border-radius: 4px;
+  padding: 0.1rem 0.25rem;
+  border-radius: 3px;
   color: #d7ebff;
   background: #192230;
 }
@@ -44,7 +49,7 @@ code {
 .app {
   width: min(1200px, calc(100% - 2rem));
   margin: 0 auto;
-  padding: 2rem 0 3rem;
+  padding: 1.5rem 0 2.5rem;
 }
 
 .header {
@@ -52,31 +57,31 @@ code {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .header h1 {
   margin: 0;
-  font-size: clamp(1.5rem, 3vw, 2.2rem);
+  font-size: clamp(1.5rem, 3vw, 2rem);
 }
 
 .header p {
-  margin: 0.4rem 0 0;
+  margin: 0.35rem 0 0;
   color: #aeb9c8;
 }
 
 .controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
+  gap: 0.5rem;
 }
 
 .error {
   margin: 1rem 0;
-  padding: 0.85rem;
+  padding: 0.75rem;
   border: 1px solid #8b3a3a;
-  border-radius: 8px;
+  border-radius: 4px;
   color: #ffd2d2;
   background: #381d22;
 }
@@ -84,13 +89,13 @@ code {
 .layout {
   display: grid;
   grid-template-columns: minmax(270px, 0.9fr) minmax(360px, 1.4fr);
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .panel {
   padding: 1rem;
   border: 1px solid #2c3747;
-  border-radius: 12px;
+  border-radius: 6px;
   background: #161d27;
 }
 
@@ -101,13 +106,14 @@ code {
 
 .current-event {
   margin-bottom: 1rem;
-  padding: 0.85rem;
-  border-radius: 8px;
-  background: #202936;
+  padding: 0.75rem;
+  border: 1px solid #2c3747;
+  border-radius: 4px;
+  background: #1c2531;
 }
 
 .event-kind {
-  margin: 0 0 0.3rem;
+  margin: 0 0 0.25rem;
   font-weight: 700;
   color: #8fc3ff;
 }
@@ -118,11 +124,12 @@ code {
 }
 
 .label {
-  margin: 0.9rem 0 0.25rem;
-  color: #8e9cad;
-  font-size: 0.85rem;
+  margin: 0.85rem 0 0.25rem;
+  color: #9ca9ba;
+  font-size: 0.8rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.04em;
 }
 
 .value {
@@ -132,7 +139,7 @@ code {
 
 .bindings {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.4rem;
 }
 
 .binding-row {
@@ -144,7 +151,7 @@ code {
 
 .trace-list {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.45rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -152,24 +159,24 @@ code {
 
 .trace-row {
   margin-left: calc(var(--depth) * 1.25rem);
-  padding: 0.7rem;
+  padding: 0.65rem;
+  border: 1px solid #2c3747;
   border-left: 4px solid #60728a;
-  border-radius: 8px;
+  border-radius: 4px;
   background: #1c2531;
   cursor: pointer;
-  transition: opacity 120ms ease, transform 120ms ease;
 }
 
 .trace-row:hover {
-  transform: translateX(2px);
+  background: #202936;
 }
 
 .trace-row.is-current {
-  outline: 2px solid #8fc3ff;
+  outline: 1px solid #8fc3ff;
 }
 
 .trace-row.is-future {
-  opacity: 0.4;
+  opacity: 0.45;
 }
 
 .trace-goal {
@@ -188,16 +195,6 @@ code {
   border-left-color: #b9a2ff;
 }
 
-.expanded-goals {
-  display: grid;
-  gap: 0.45rem;
-}
-
-.expanded-goal {
-  display: block;
-  width: fit-content;
-}
-
 .trace-unified {
   border-left-color: #69d3a0;
 }
@@ -214,6 +211,16 @@ code {
   border-left-color: #65dce5;
 }
 
+.expanded-goals {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.expanded-goal {
+  display: block;
+  width: fit-content;
+}
+
 .trace-heading {
   display: flex;
   align-items: center;
@@ -221,19 +228,19 @@ code {
 }
 
 .trace-tag {
-  min-width: 5.75rem;
-  padding: 0.18rem 0.35rem;
-  border-radius: 999px;
+  min-width: 5.5rem;
+  padding: 0.15rem 0.3rem;
+  border-radius: 3px;
   color: #12171f;
   background: #d3e6fb;
   font-size: 0.72rem;
-  font-weight: 800;
+  font-weight: 700;
   text-align: center;
   text-transform: uppercase;
 }
 
 .trace-details {
-  margin: 0.45rem 0 0;
+  margin: 0.4rem 0 0;
   color: #aeb9c8;
   font-size: 0.9rem;
   overflow-wrap: anywhere;
@@ -241,20 +248,46 @@ code {
 
 .answers {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .answer {
   margin: 0;
-  padding: 0.65rem;
-  border-radius: 7px;
-  background: #202936;
+  padding: 0.55rem;
+  border: 1px solid #2c3747;
+  border-radius: 4px;
+  background: #1c2531;
 }
 
 .empty-state {
   margin: 0;
   color: #8e9cad;
   font-style: italic;
+}
+
+.code-input {
+  width: 100%;
+  margin-top: 0.4rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  resize: vertical;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  background: #0f172a;
+  color: #e5e7eb;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.code-input:focus {
+  outline: 1px solid #60a5fa;
+  border-color: #60a5fa;
+}
+
+label.label {
+  display: block;
+  margin-top: 0.9rem;
 }
 
 @media (max-width: 800px) {
@@ -265,43 +298,4 @@ code {
   .trace-row {
     margin-left: calc(var(--depth) * 0.65rem);
   }
-}
-
-.code-input {
-  width: 100%;
-  box-sizing: border-box;
-  margin-top: 0.5rem;
-  margin-bottom: 1.25rem;
-  padding: 0.9rem 1rem;
-
-  resize: vertical;
-
-  border: 1px solid #334155;
-  border-radius: 0.75rem;
-
-  background: #0f172a;
-  color: #e5e7eb;
-
-  font-family:
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Monaco,
-    Consolas,
-    "Liberation Mono",
-    "Courier New",
-    monospace;
-  font-size: 0.95rem;
-  line-height: 1.45;
-}
-
-.code-input:focus {
-  outline: none;
-  border-color: #60a5fa;
-  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
-}
-
-label.label {
-  display: block;
-  margin-top: 1rem;
 }

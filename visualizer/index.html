@@ -2,85 +2,205 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0"
+      name="description"
+      content="Explore Prolog unification, recursion, failure, and backtracking one execution step at a time."
     />
     <title>Prolog Interpreter Visualizer</title>
   </head>
 
   <body>
     <main class="app">
-      <header class="header">
-        <div>
-          <h1>Prolog Interpreter Visualizer</h1>
-          <p>Step through unification, failure, and backtracking.</p>
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Execution visualizer</p>
+          <h1>See how Prolog finds an answer.</h1>
+          <p class="hero-description">
+            Edit a program, run a query, and step through goals, clause attempts,
+            unification, rule expansion, failure, and backtracking.
+          </p>
         </div>
 
-        <div class="controls">
-          <button id="run-demo">Run query</button>
-          <button id="reset-demo">Reset demo</button>
-          <button id="previous-step">Previous</button>
-          <button id="next-step">Next</button>
-          <button id="play-trace">Play</button>
+        <div class="hero-badges" aria-label="Supported features">
+          <span>Lists</span>
+          <span>Arithmetic</span>
+          <span>Backtracking</span>
+          <span>Built-ins</span>
         </div>
       </header>
 
-      <p id="error-message" class="error" hidden></p>
+      <section class="example-bar" aria-label="Example programs">
+        <div class="example-picker">
+          <label for="example-select">Example</label>
+          <select id="example-select"></select>
+          <button id="load-example" type="button" class="button button-secondary">
+            Load example
+          </button>
+        </div>
+        <p id="example-description" class="example-description"></p>
+      </section>
 
-      <section class="layout">
-        <section class="panel">
-          <h2>Program</h2>
+      <div id="error-message" class="error" role="alert" hidden>
+        <strong>Could not run query.</strong>
+        <span id="error-detail"></span>
+      </div>
 
-          <label class="label" for="program-input">Facts and rules</label>
+      <section class="workspace">
+        <section class="panel editor-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">Input</p>
+              <h2>Program & query</h2>
+            </div>
+            <button id="reset-demo" type="button" class="button button-ghost">
+              Reset
+            </button>
+          </div>
+
+          <label class="field-label" for="program-input">Program</label>
           <textarea
             id="program-input"
-            class="code-input"
-            rows="14"
+            class="code-input program-input"
+            rows="18"
             spellcheck="false"
+            autocapitalize="off"
+            autocomplete="off"
           ></textarea>
 
-          <label class="label" for="query-input">Query</label>
+          <div class="query-heading">
+            <label class="field-label" for="query-input">Query</label>
+            <span class="shortcut">Ctrl / ⌘ + Enter to run</span>
+          </div>
           <textarea
             id="query-input"
-            class="code-input"
+            class="code-input query-input"
             rows="2"
             spellcheck="false"
+            autocapitalize="off"
+            autocomplete="off"
           ></textarea>
+
+          <button id="run-demo" type="button" class="button button-primary run-button">
+            Run query
+          </button>
         </section>
 
-        <section class="panel">
-          <h2>Current operation</h2>
+        <section class="panel inspector-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">Execution</p>
+              <h2>Current operation</h2>
+            </div>
+            <div class="metric-group" aria-label="Execution summary">
+              <span class="metric"><strong id="solution-count">—</strong> solutions</span>
+              <span class="metric"><strong id="trace-count">—</strong> events</span>
+            </div>
+          </div>
 
           <div class="current-event">
-            <p id="step-counter">No trace loaded.</p>
-            <p id="event-kind" class="event-kind">Waiting</p>
+            <div class="current-event-topline">
+              <span id="event-kind" class="event-kind">Waiting</span>
+              <span id="step-counter" class="step-counter">No trace loaded</span>
+            </div>
             <p id="event-description" class="event-description">
-              Run a query to receive events from the Go interpreter.
+              Run a query to receive execution events from the Go interpreter.
             </p>
           </div>
 
-          <p class="label">Goal</p>
-          <p id="current-goal" class="value">—</p>
+          <div class="detail-grid">
+            <div class="detail-block">
+              <p class="detail-label">Goal</p>
+              <code id="current-goal" class="detail-value">—</code>
+            </div>
+            <div class="detail-block">
+              <p class="detail-label">Clause</p>
+              <code id="current-clause" class="detail-value">—</code>
+            </div>
+          </div>
 
-          <p class="label">Clause</p>
-          <p id="current-clause" class="value">—</p>
+          <div class="detail-block">
+            <p class="detail-label">Expanded goals</p>
+            <div id="expanded-goals" class="expanded-goals"></div>
+          </div>
 
-          <p class="label">Expanded goals</p>
-          <div id="expanded-goals" class="expanded-goals"></div>
+          <div class="detail-block">
+            <p class="detail-label">Bindings</p>
+            <div id="bindings" class="bindings"></div>
+          </div>
 
-          <p class="label">Bindings</p>
-          <div id="bindings" class="bindings"></div>
-
-          <p class="label">Solutions</p>
-          <div id="answers" class="answers"></div>
-        </section>
-
-        <section class="panel">
-          <h2>Execution trace</h2>
-          <ol id="trace-list" class="trace-list"></ol>
+          <div class="answers-block">
+            <div class="answers-heading">
+              <p class="detail-label">Solutions</p>
+            </div>
+            <div id="answers" class="answers" aria-live="polite"></div>
+          </div>
         </section>
       </section>
+
+      <section class="panel trace-panel">
+        <div class="trace-header">
+          <div>
+            <p class="section-kicker">Timeline</p>
+            <h2>Execution trace</h2>
+          </div>
+
+          <div class="trace-controls">
+            <button id="previous-step" type="button" class="button button-secondary">
+              Previous
+            </button>
+            <button id="play-trace" type="button" class="button button-secondary">
+              Play
+            </button>
+            <button id="next-step" type="button" class="button button-secondary">
+              Next
+            </button>
+            <label class="speed-control" for="playback-speed">
+              Speed
+              <select id="playback-speed">
+                <option value="1200">Slow</option>
+                <option value="750" selected>Normal</option>
+                <option value="400">Fast</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div class="scrubber-row">
+          <input
+            id="trace-scrubber"
+            class="trace-scrubber"
+            type="range"
+            min="1"
+            max="1"
+            value="1"
+            disabled
+            aria-label="Execution step"
+          />
+        </div>
+
+        <div class="trace-legend" aria-label="Trace event legend">
+          <span class="legend legend-goal">Goal</span>
+          <span class="legend legend-clause">Clause</span>
+          <span class="legend legend-success">Success</span>
+          <span class="legend legend-failure">Failure</span>
+          <span class="legend legend-backtrack">Backtrack</span>
+          <span class="legend legend-solution">Solution</span>
+        </div>
+
+        <div id="trace-scroll" class="trace-scroll">
+          <ol id="trace-list" class="trace-list"></ol>
+          <div id="trace-empty" class="trace-empty">
+            <strong>No execution trace yet.</strong>
+            <span>Run a query to populate the timeline.</span>
+          </div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <span>Go resolver + TypeScript visualizer</span>
+        <span>Educational Prolog subset</span>
+      </footer>
     </main>
 
     <script type="module" src="/src/main.ts"></script>

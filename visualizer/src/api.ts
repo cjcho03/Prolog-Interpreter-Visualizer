@@ -11,6 +11,13 @@ const eventTypes = new Set<TraceEventType>([
   "solution"
 ])
 
+const configuredApiBase = (import.meta.env.VITE_API_BASE_URL ?? "").trim()
+const apiBase = configuredApiBase.replace(/\/$/, "")
+
+function apiUrl(path: string): string {
+  return `${apiBase}${path}`
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
@@ -32,8 +39,7 @@ function isTraceEvent(value: unknown): value is TraceEvent {
     return false
   }
 
-  const hasValidGoal =
-    value.goal === undefined || typeof value.goal === "string"
+  const hasValidGoal = value.goal === undefined || typeof value.goal === "string"
   const hasValidClause =
     value.clause === undefined || typeof value.clause === "string"
   const hasValidExpandedGoals =
@@ -92,35 +98,32 @@ async function readErrorMessage(response: Response): Promise<string> {
   } catch {
     // Fall through to generic message
   }
+
   return `The Go server returned ${response.status}.`
 }
 
-export async function fetchDemoTrace(): Promise<SolveResponse> {
-  const response = await fetch("/api/demo")
-
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
-  }
-
-  const body: unknown = await response.json()
-
-  return parseSolveResponse(body)
-}
-
 export async function solveProlog(request: SolveRequest): Promise<SolveResponse> {
-  const response = await fetch("/api/solve", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(request)
-  })
+  let response: Response
+
+  try {
+    response = await fetch(apiUrl("/api/solve"), {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+    })
+  } catch {
+    throw new Error(
+      "Could not reach the Prolog API. Make sure the Go server is running, or configure VITE_API_BASE_URL for a deployed backend.",
+    )
+  }
 
   if (!response.ok) {
     throw new Error(await readErrorMessage(response))
   }
 
   const body: unknown = await response.json()
-
   return parseSolveResponse(body)
 }
