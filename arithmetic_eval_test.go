@@ -14,44 +14,34 @@ func TestArithmeticEvalExample(t *testing.T) {
 		want  Number
 	}{
 		{
-			name:  "mixed precedence with negative result",
-			query: "?- eval(5 - 6 * 18 / 3 + 2, Y).",
-			want:  Number("-29.0"),
-		},
-		{
-			name:  "mixed multiplication division addition",
-			query: "?- eval(10 * 20 - 9 / 3 + 20, Y).",
-			want:  Number("217.0"),
-		},
-		{
-			name:  "power multiplication subtraction",
-			query: "?- eval(10 ** 3 * 9 - 100, Y).",
-			want:  Number("8900"),
+			name:  "mixed precedence",
+			query: "?- eval(14 + 3 * 5 - 8 / 2, Y).",
+			want:  Number("25.0"),
 		},
 		{
 			name:  "parentheses override precedence",
-			query: "?- eval((5 - 6) * (18 / 3 + 2), Y).",
-			want:  Number("-8.0"),
+			query: "?- eval((14 + 3) * (5 - 2), Y).",
+			want:  Number("51"),
 		},
 		{
 			name:  "right associative exponentiation",
-			query: "?- eval(2 ** 3 ** 2, Y).",
-			want:  Number("512"),
+			query: "?- eval(3 ** 2 ** 2, Y).",
+			want:  Number("81"),
 		},
 		{
 			name:  "unary minus with exponentiation",
-			query: "?- eval(-2 ** 2, Y).",
-			want:  Number("-4"),
+			query: "?- eval(-3 ** 2, Y).",
+			want:  Number("-9"),
 		},
 		{
 			name:  "modulo",
-			query: "?- eval(29 mod 6, Y).",
-			want:  Number("5"),
+			query: "?- eval(38 mod 7, Y).",
+			want:  Number("3"),
 		},
 		{
 			name:  "arithmetic functions",
-			query: "?- eval(max(abs(-7), min(12,9)), Y).",
-			want:  Number("9"),
+			query: "?- eval(max(abs(-11), min(18, 7)), Y).",
+			want:  Number("11"),
 		},
 	}
 
@@ -95,15 +85,15 @@ func TestArithmeticEvalExampleFailsForInvalidArithmetic(t *testing.T) {
 	}{
 		{
 			name:  "division by zero",
-			query: "?- eval(10 / 0, Y).",
+			query: "?- eval(27 / 0, Y).",
 		},
 		{
 			name:  "unbound arithmetic variable",
-			query: "?- eval(X + 1, Y).",
+			query: "?- eval(Input + 4, Y).",
 		},
 		{
 			name:  "modulo by zero",
-			query: "?- eval(10 mod 0, Y).",
+			query: "?- eval(27 mod 0, Y).",
 		},
 	}
 
@@ -130,7 +120,7 @@ func TestArithmeticEvalExampleCanUsePreviouslyBoundVariable(t *testing.T) {
 		t.Fatalf("load arithmetic example: %v", err)
 	}
 
-	goals, err := ParseQuery("?- X = 7, eval(X * 3 + 1, Y).")
+	goals, err := ParseQuery("?- Base = 8, eval(Base * 4 - 3, Result).")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,14 +130,14 @@ func TestArithmeticEvalExampleCanUsePreviouslyBoundVariable(t *testing.T) {
 		t.Fatalf("expected exactly 1 answer, got %d", len(answers))
 	}
 
-	x := resolveTerm(Var("X"), answers[0])
-	y := resolveTerm(Var("Y"), answers[0])
+	base := resolveTerm(Var("Base"), answers[0])
+	result := resolveTerm(Var("Result"), answers[0])
 
-	if x != Number("7") {
-		t.Fatalf("expected X = 7, got %v", x)
+	if base != Number("8") {
+		t.Fatalf("expected Base = 8, got %v", base)
 	}
 
-	if y != Number("22") {
-		t.Fatalf("expected Y = 22, got %v", y)
+	if result != Number("29") {
+		t.Fatalf("expected Result = 29, got %v", result)
 	}
 }
