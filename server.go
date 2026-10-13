@@ -3,6 +3,7 @@ package prolog
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 )
 
 type SolveRequest struct {
@@ -17,6 +18,71 @@ type SolveResponse struct {
 
 type ErrorResponse struct {
 	Error string `json:"error"`
+}
+
+type HealthResponse struct {
+	Status string `json:"status"`
+}
+
+func HealthHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, HealthResponse{Status: "ok"})
+	}
+}
+
+// CORSMiddleware allows the browser visualizer to call the API when the two are
+// deployed on different origins. Pass exact frontend origins via ALLOWED_ORIGINS.
+// Local Vite development normally uses the same-origin /api proxy and therefore
+// does not require a CORS origin.
+func CORSMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
+	allowed := make(map[string]struct{}, len(allowedOrigins))
+	allowAny := false
+
+	for _, origin := range allowedOrigins {
+		origin = strings.TrimSpace(origin)
+		if origin == "" {
+			continue
+		}
+		if origin == "*" {
+			allowAny = true
+			continue
+		}
+		allowed[origin] = struct{}{}
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := strings.TrimSpace(r.Header.Get("Origin"))
+
+		if origin != "" {
+			_, explicitlyAllowed := allowed[origin]
+			if !allowAny && !explicitlyAllowed {
+				writeError(w, http.StatusForbidden, "origin not allowed")
+				return
+			}
+
+			if allowAny {
+				w.Header().Set("Access-Control-Allow-Origin", "*")
+			} else {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Add("Vary", "Origin")
+			}
+
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type")
+		}
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func DemoHandler(engine Engine) http.HandlerFunc {
